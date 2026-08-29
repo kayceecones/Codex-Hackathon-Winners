@@ -57,6 +57,14 @@ function emitEvent(type: string, payload: Record<string, unknown>): void {
   console.log(`[event] ${type}`, JSON.stringify(payload));
 }
 
+/**
+ * Our internal status is success/failed; the Master's CodingStatus contract
+ * (src/contracts/workflow.ts) is completed/failed.
+ */
+function toMasterCodingStatus(status: 'success' | 'failed'): 'completed' | 'failed' {
+  return status === 'success' ? 'completed' : 'failed';
+}
+
 async function postMasterEvent(
   contract: ExecutionContract,
   type: 'coding.completed' | 'review.completed',
@@ -64,20 +72,26 @@ async function postMasterEvent(
 ): Promise<void> {
   if (!MASTER_API_URL) return;
 
-  const response = await fetch(`${MASTER_API_URL}/api/events`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      type,
-      projectId: contract.project_id,
-      actor: { name: 'Coding + Review Agent', role: 'person_5' },
-      payload,
-    }),
-  });
+  // Never fatal. The coding work already happened - throwing here would discard
+  // a successful run (and tear down its devbox) because a notification failed.
+  try {
+    const response = await fetch(`${MASTER_API_URL}/api/events`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type,
+        projectId: contract.project_id,
+        actor: { name: 'Coding + Review Agent', role: 'person_5' },
+        payload,
+      }),
+    });
 
-  if (!response.ok) {
-    const body = await response.text();
-    console.warn(`[master-callback] ${type} failed with ${response.status}: ${body}`);
+    if (!response.ok) {
+      const body = await response.text();
+      console.warn(`[master-callback] ${type} failed with ${response.status}: ${body}`);
+    }
+  } catch (err) {
+    console.warn(`[master-callback] ${type} could not reach master:`, err instanceof Error ? err.message : err);
   }
 }
 
@@ -197,7 +211,14 @@ app.post('/execution-contract', async (req, res) => {
         summary: codingResult.summary,
         filesChanged: codingResult.filesChanged,
         commandsRun: ['runloop coding agent', 'node demo-app/verify.js'],
-        output: JSON.stringify({ tests, iterations: codingResult.iterations }),
+        // previewUrl/snapshotId ride along here so the frontend can link the
+        // live result and memory can store the plan version's bootable state.
+        output: JSON.stringify({
+          tests,
+          iterations: codingResult.iterations,
+          previewUrl,
+          snapshotId,
+        }),
       },
     });
 
@@ -223,6 +244,30 @@ app.post('/execution-contract', async (req, res) => {
         detail: reviewResult.detail,
       });
     }
+
+    // Master routes on this: pass completes the loop, coding_issue goes back to
+    // Coding, plan_issue goes back to Planning. Without it the workflow stalls
+    // after execution.
+    await postMasterEvent(contract, 'review.completed', {
+      review: {
+        executionId: contract.execution_contract_id,
+        classification: reviewResult.classification,
+        summary: reviewResult.detail,
+        issues:
+          reviewResult.classification === 'pass'
+            ? []
+            : [
+                {
+                  title:
+                    reviewResult.classification === 'coding_issue'
+                      ? 'Implementation issue'
+                      : 'Plan issue',
+                  detail: reviewResult.detail,
+                  severity: 'medium' as const,
+                },
+              ],
+      },
+    });
 
     const devboxId = devbox.idOrNull;
     if (succeeded && devboxId) {
