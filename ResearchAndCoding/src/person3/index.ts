@@ -14,3 +14,5 @@ export type {
   PlanVersion,
   ProjectContext,
 } from "./types.ts";
+export { submitPerson3OutputToMaster } from "./masterClient.ts";
+export type { MasterBridgeResponse, MasterClientOptions } from "./masterClient.ts";

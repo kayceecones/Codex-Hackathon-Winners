@@ -11,15 +11,10 @@ const app = express();
 app.use(express.json());
 
 const PORT = Number(process.env.PORT ?? 4005);
+const MASTER_API_URL = process.env.MASTER_API_URL?.replace(/\/+$/, '');
 const SEED_DIR = path.join(__dirname, '..', 'seed');
 const VERIFY_DIR = path.join(__dirname, 'verify');
 
-// Proposed shape from CODING_AGENT_PLAN.md §8 - field names/casing to confirm
-// with Person 1 (Master Agent) once the real execution contract is built from
-// Person 3's PlanVersion. acceptance_criteria/tasks are confirmed to match
-// PlanVersion.acceptanceCriteria/tasks (camelCase there, snake_case here);
-// files_or_areas has no PlanVersion equivalent yet - Person 1 needs to derive
-// it, or it stays empty and Review's scope check no-ops (see §8/§6).
 interface ExecutionContract {
   execution_contract_id: string;
   project_id: string;
@@ -28,9 +23,7 @@ interface ExecutionContract {
   files_or_areas: string[];
   constraints: string[];
   acceptance_criteria: string[];
-  /** Flat notes, or Person 3's richer PlanningContext object - both accepted. */
   context: string[] | Record<string, unknown>;
-  /** Name of a script in src/verify/ (without .js), e.g. "dark-mode". */
   verify_script?: string;
   /**
    * Snapshot of the previous approved execution. When present the devbox boots
@@ -62,6 +55,30 @@ const liveDevboxes = new Map<string, LiveDevbox>();
 // in-process) - logging for now, per CODING_AGENT_PLAN.md §7.
 function emitEvent(type: string, payload: Record<string, unknown>): void {
   console.log(`[event] ${type}`, JSON.stringify(payload));
+}
+
+async function postMasterEvent(
+  contract: ExecutionContract,
+  type: 'coding.completed' | 'review.completed',
+  payload: Record<string, unknown>
+): Promise<void> {
+  if (!MASTER_API_URL) return;
+
+  const response = await fetch(`${MASTER_API_URL}/api/events`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      type,
+      projectId: contract.project_id,
+      actor: { name: 'Coding + Review Agent', role: 'person_5' },
+      payload,
+    }),
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    console.warn(`[master-callback] ${type} failed with ${response.status}: ${body}`);
+  }
 }
 
 async function seedDevbox(devbox: Devbox): Promise<void> {
@@ -173,6 +190,17 @@ app.post('/execution-contract', async (req, res) => {
       snapshot_id: snapshotId,
     });
 
+    await postMasterEvent(contract, 'coding.completed', {
+      execution: {
+        executionContractId: contract.execution_contract_id,
+        status: toMasterCodingStatus(codingResult.status),
+        summary: codingResult.summary,
+        filesChanged: codingResult.filesChanged,
+        commandsRun: ['runloop coding agent', 'node demo-app/verify.js'],
+        output: JSON.stringify({ tests, iterations: codingResult.iterations }),
+      },
+    });
+
     emitEvent('review.started', { execution_contract_id: contract.execution_contract_id });
 
     const reviewInput: ReviewInput = {
@@ -181,7 +209,10 @@ app.post('/execution-contract', async (req, res) => {
       tests,
       acceptanceCriteria: contract.acceptance_criteria ?? [],
     };
-    const reviewResult = review(reviewInput);
+    const reviewResult =
+      codingResult.status === 'success'
+        ? review(reviewInput)
+        : { classification: 'coding_issue' as const, detail: `Coding failed: ${codingResult.summary}` };
 
     if (reviewResult.classification === 'pass') {
       emitEvent('review.passed', { execution_contract_id: contract.execution_contract_id });
