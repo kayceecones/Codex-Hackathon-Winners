@@ -1,1 +1,310 @@
-:root{--cc-cyan:#61e7ff;--cc-violet:#a98cff;--cc-green:#67e4c1;--cc-blue:#7da8ff}.app-shell{position:relative;overflow:hidden}.app-shell:before{content:'';position:fixed;inset:-20%;pointer-events:none;background:radial-gradient(ellipse at 72% 36%,rgba(104,91,255,.11),transparent 28%),radial-gradient(ellipse at 35% 72%,rgba(46,210,255,.07),transparent 25%);animation:cc-breathe 9s ease-in-out infinite alternate}.app-shell:after{content:'';position:fixed;inset:0;pointer-events:none;opacity:.28;background-image:radial-gradient(circle at 14% 31%,#fff 0 1px,transparent 1.5px),radial-gradient(circle at 27% 68%,#bdefff 0 1px,transparent 1.5px),radial-gradient(circle at 58% 14%,#fff 0 1px,transparent 1.5px),radial-gradient(circle at 69% 79%,#c8c1ff 0 1px,transparent 1.5px),radial-gradient(circle at 88% 24%,#fff 0 1px,transparent 1.5px),radial-gradient(circle at 94% 84%,#9feeff 0 1px,transparent 1.5px);animation:cc-drift 18s linear infinite}.main{position:relative}.main:before{content:'WEAVE / SHARED INTELLIGENCE';position:absolute;right:38px;top:100px;font-family:'JetBrains Mono';font-size:7px;letter-spacing:.22em;color:rgba(126,154,211,.35);pointer-events:none}.topbar{position:relative}.topbar:after{content:'';position:absolute;left:0;bottom:-1px;width:180px;height:1px;background:linear-gradient(90deg,var(--cc-cyan),transparent);box-shadow:0 0 14px rgba(97,231,255,.35)}.workspace-grid{position:relative}.workspace-grid:after{content:'';position:absolute;inset:20px 0 auto 0;height:1px;background:linear-gradient(90deg,transparent,rgba(121,153,235,.12),transparent);pointer-events:none}.request-card,.agents-card,.state-card,.plan-card,.panel{position:relative;overflow:hidden}.request-card:before,.agents-card:before,.state-card:before,.plan-card:before,.panel:before{content:'';position:absolute;inset:0;pointer-events:none;background:linear-gradient(110deg,rgba(255,255,255,.045),transparent 24%,transparent 72%,rgba(97,231,255,.025));border-radius:inherit}.request-card:after,.agents-card:after,.state-card:after,.plan-card:after,.panel:after{content:'';position:absolute;left:15px;right:15px;top:0;height:1px;background:linear-gradient(90deg,transparent,rgba(169,140,255,.3),transparent);opacity:.7}.request-card:hover,.agents-card:hover,.state-card:hover,.plan-card:hover,.panel:hover{border-color:rgba(130,163,244,.25);box-shadow:0 18px 55px rgba(0,0,0,.2),0 0 25px rgba(92,121,232,.045)}.activity-column{position:relative}.activity-column:after{content:'';position:absolute;right:15px;top:86px;width:120px;height:120px;border:1px solid rgba(97,231,255,.07);border-radius:50%;box-shadow:0 0 55px rgba(97,231,255,.05);pointer-events:none}.activity-column:before{content:'';position:absolute;right:75px;top:80px;width:1px;height:132px;background:linear-gradient(var(--cc-cyan),transparent);opacity:.18;transform:rotate(32deg);pointer-events:none}.state-card{background:linear-gradient(145deg,rgba(10,24,49,.8),rgba(6,15,34,.55)),linear-gradient(rgba(110,145,225,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(110,145,225,.035) 1px,transparent 1px);background-size:auto,28px 28px,28px 28px}.state-card:before{background:radial-gradient(circle at 82% 23%,rgba(169,140,255,.11),transparent 18%),radial-gradient(circle at 18% 72%,rgba(97,231,255,.07),transparent 22%)}.state-card .workflow-step.current{position:relative}.state-card .workflow-step.current:after{content:'';position:absolute;right:8px;width:4px;height:4px;border-radius:50%;background:var(--cc-violet);box-shadow:0 0 12px var(--cc-violet),0 0 24px rgba(169,140,255,.6);animation:cc-pulse 2s ease-in-out infinite}.plan-card{box-shadow:0 14px 55px rgba(0,0,0,.18),inset 0 0 30px rgba(169,140,255,.025)}.plan-card .plan-title:after{content:'  ◌';color:var(--cc-cyan);font-size:9px;opacity:.7}.composer-wrap{position:relative}.composer-wrap:before{content:'⌁  CHANNEL SECURE  ·  HUMAN APPROVAL REQUIRED  ·  AGENTS SYNCHRONIZED  ⌁';display:block;text-align:center;font-family:'JetBrains Mono';font-size:6px;letter-spacing:.2em;color:rgba(110,133,174,.34);margin-bottom:7px}.composer{box-shadow:0 0 0 1px rgba(97,231,255,.025),0 0 50px rgba(74,110,235,.1),inset 0 0 25px rgba(97,231,255,.025)}.composer:before{content:'';position:absolute;left:50%;transform:translateX(-50%);margin-top:-55px;width:260px;height:1px;background:linear-gradient(90deg,transparent,var(--cc-cyan),var(--cc-violet),transparent);opacity:.15}.review-workspace{position:relative}.review-workspace:before{content:'◈';position:absolute;right:6px;top:25px;color:rgba(169,140,255,.18);font-size:28px;text-shadow:0 0 24px rgba(169,140,255,.2)}.review-grid .panel{min-height:100px}.panel-title{display:flex;align-items:center;gap:8px}.panel-title:before{content:'//';color:rgba(97,231,255,.45);font-family:'JetBrains Mono';font-size:8px}.big-version{box-shadow:0 0 20px rgba(169,140,255,.05)}.ready-card{box-shadow:inset 0 0 30px rgba(103,228,193,.025),0 0 20px rgba(103,228,193,.04)}.terminal{position:relative;overflow:hidden;box-shadow:inset 0 0 40px rgba(72,109,210,.06)}.terminal:after{content:'';position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(180deg,transparent 0 3px,rgba(130,164,255,.025) 4px);opacity:.5}.progress{box-shadow:0 0 12px rgba(97,231,255,.08)}@keyframes cc-breathe{from{transform:scale(1);opacity:.65}to{transform:scale(1.04);opacity:1}}@keyframes cc-drift{from{transform:translate3d(0,0,0)}to{transform:translate3d(-8px,5px,0)}}@keyframes cc-pulse{0%,100%{opacity:.45;transform:scale(.85)}50%{opacity:1;transform:scale(1.25)}}@media(prefers-reduced-motion:reduce){.app-shell:before,.app-shell:after,.state-card .workflow-step.current:after{animation:none}}
+/* ── Command center atmosphere ────────────────────────────────────────────
+   Loaded after styles.css. Owns the deep-space backdrop and the modern
+   glass/depth treatment layered over the base components.                */
+
+:root {
+  --cc-cyan: #61e7ff;
+  --cc-violet: #a98cff;
+  --cc-green: #67e4c1;
+  --cc-blue: #7da8ff;
+  --cc-radius: 16px;
+  --cc-glass: rgba(11, 23, 48, 0.55);
+  --cc-edge: rgba(146, 171, 255, 0.14);
+}
+
+/* ── Deep space backdrop ────────────────────────────────────────────── */
+
+.app-shell { position: relative; overflow: hidden; }
+
+/* Nebula field. Slow breathing keeps it alive without pulling focus. */
+.app-shell::before {
+  content: '';
+  position: fixed;
+  inset: -25%;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 74% 30%, rgba(120, 88, 255, 0.16), transparent 34%),
+    radial-gradient(ellipse at 28% 74%, rgba(46, 210, 255, 0.1), transparent 32%),
+    radial-gradient(ellipse at 52% 8%, rgba(255, 122, 205, 0.06), transparent 28%);
+  animation: cc-breathe 14s ease-in-out infinite alternate;
+}
+
+/* Two star layers drifting at different rates — cheap parallax depth. */
+.app-shell::after {
+  content: '';
+  position: fixed;
+  inset: -10%;
+  pointer-events: none;
+  opacity: 0.5;
+  background-image:
+    radial-gradient(circle at 14% 31%, #fff 0 1.1px, transparent 1.6px),
+    radial-gradient(circle at 27% 68%, #bdefff 0 1px, transparent 1.5px),
+    radial-gradient(circle at 58% 14%, #fff 0 1.2px, transparent 1.7px),
+    radial-gradient(circle at 69% 79%, #c8c1ff 0 1px, transparent 1.5px),
+    radial-gradient(circle at 88% 24%, #fff 0 1.1px, transparent 1.6px),
+    radial-gradient(circle at 94% 84%, #9feeff 0 1px, transparent 1.5px),
+    radial-gradient(circle at 41% 45%, #fff 0 0.9px, transparent 1.4px),
+    radial-gradient(circle at 8% 88%, #d9d2ff 0 1px, transparent 1.5px),
+    radial-gradient(circle at 77% 55%, #fff 0 0.8px, transparent 1.3px),
+    radial-gradient(circle at 35% 22%, #b7e8ff 0 0.9px, transparent 1.4px);
+  animation: cc-drift 26s linear infinite alternate, cc-twinkle 7s ease-in-out infinite;
+}
+
+/* A far, faint starfield behind everything, drifting the other way. */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  /* Matches the base starfield it replaces: behind all content. */
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.34;
+  background-image:
+    radial-gradient(circle at 5% 12%, #fff 0 0.7px, transparent 1.2px),
+    radial-gradient(circle at 22% 41%, #cfe6ff 0 0.6px, transparent 1.1px),
+    radial-gradient(circle at 48% 63%, #fff 0 0.7px, transparent 1.2px),
+    radial-gradient(circle at 63% 28%, #e3d9ff 0 0.6px, transparent 1.1px),
+    radial-gradient(circle at 82% 71%, #fff 0 0.7px, transparent 1.2px),
+    radial-gradient(circle at 91% 38%, #d3f2ff 0 0.6px, transparent 1.1px);
+  animation: cc-drift-far 44s linear infinite alternate;
+}
+
+@keyframes cc-breathe {
+  from { transform: scale(1) translate3d(0, 0, 0); opacity: 0.7; }
+  to   { transform: scale(1.06) translate3d(-1%, 1%, 0); opacity: 1; }
+}
+
+@keyframes cc-drift {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(-14px, 9px, 0); }
+}
+
+@keyframes cc-drift-far {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(9px, -6px, 0); }
+}
+
+@keyframes cc-twinkle {
+  0%, 100% { opacity: 0.5; }
+  50%      { opacity: 0.66; }
+}
+
+/* ── Chrome ─────────────────────────────────────────────────────────── */
+
+.main { position: relative; }
+
+.main::before {
+  content: 'WEAVE / SHARED INTELLIGENCE';
+  position: absolute;
+  right: 38px;
+  top: 100px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 7px;
+  letter-spacing: 0.22em;
+  color: rgba(126, 154, 211, 0.32);
+  pointer-events: none;
+}
+
+.topbar { position: relative; }
+
+.topbar::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  width: 190px;
+  height: 1px;
+  background: linear-gradient(90deg, var(--cc-cyan), transparent);
+  box-shadow: 0 0 16px rgba(97, 231, 255, 0.4);
+}
+
+/* ── Glass surfaces ─────────────────────────────────────────────────── */
+
+.request-card,
+.agents-card,
+.state-card,
+.plan-card,
+.panel {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--cc-radius);
+  backdrop-filter: blur(12px);
+  transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
+}
+
+/* Angled sheen across each surface. */
+.request-card::before,
+.agents-card::before,
+.state-card::before,
+.plan-card::before,
+.panel::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(
+    110deg,
+    rgba(255, 255, 255, 0.05),
+    transparent 26%,
+    transparent 70%,
+    rgba(97, 231, 255, 0.03)
+  );
+}
+
+/* Top edge highlight. */
+.request-card::after,
+.agents-card::after,
+.state-card::after,
+.plan-card::after,
+.panel::after {
+  content: '';
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  top: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(169, 140, 255, 0.34), transparent);
+}
+
+.request-card:hover,
+.agents-card:hover,
+.state-card:hover,
+.plan-card:hover,
+.panel:hover {
+  transform: translateY(-1px);
+  border-color: rgba(130, 163, 244, 0.28);
+  box-shadow:
+    0 22px 60px rgba(0, 0, 0, 0.26),
+    0 0 28px rgba(92, 121, 232, 0.06);
+}
+
+/* ── Project state card ─────────────────────────────────────────────── */
+
+.state-card {
+  background:
+    linear-gradient(145deg, rgba(10, 24, 49, 0.82), rgba(6, 15, 34, 0.58)),
+    linear-gradient(rgba(110, 145, 225, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(110, 145, 225, 0.035) 1px, transparent 1px);
+  background-size: auto, 28px 28px, 28px 28px;
+}
+
+.state-card::before {
+  background:
+    radial-gradient(circle at 82% 23%, rgba(169, 140, 255, 0.13), transparent 20%),
+    radial-gradient(circle at 18% 72%, rgba(97, 231, 255, 0.08), transparent 24%);
+}
+
+.state-card .workflow-step.current { position: relative; }
+
+.state-card .workflow-step.current::after {
+  content: '';
+  position: absolute;
+  right: 8px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--cc-violet);
+  box-shadow: 0 0 12px var(--cc-violet), 0 0 24px rgba(169, 140, 255, 0.6);
+  animation: cc-pulse 2s ease-in-out infinite;
+}
+
+@keyframes cc-pulse {
+  0%, 100% { opacity: 0.45; transform: scale(0.85); }
+  50%      { opacity: 1;    transform: scale(1.25); }
+}
+
+/* ── Navigation ─────────────────────────────────────────────────────── */
+
+nav a {
+  position: relative;
+  border-radius: 10px;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+nav a.active::before {
+  content: '';
+  position: absolute;
+  left: -10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2px;
+  height: 15px;
+  border-radius: 2px;
+  background: linear-gradient(var(--cc-cyan), var(--cc-violet));
+  box-shadow: 0 0 10px rgba(97, 231, 255, 0.7);
+}
+
+/* ── Panels & misc ──────────────────────────────────────────────────── */
+
+.panel-title { display: flex; align-items: center; gap: 8px; }
+
+.panel-title::before {
+  content: '//';
+  color: rgba(97, 231, 255, 0.45);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+}
+
+.review-workspace { position: relative; }
+
+.big-version { box-shadow: 0 0 22px rgba(169, 140, 255, 0.07); }
+.ready-card { box-shadow: inset 0 0 30px rgba(103, 228, 193, 0.03), 0 0 20px rgba(103, 228, 193, 0.05); }
+.progress { box-shadow: 0 0 14px rgba(97, 231, 255, 0.1); }
+
+.terminal {
+  position: relative;
+  overflow: hidden;
+  border-radius: 12px;
+  box-shadow: inset 0 0 40px rgba(72, 109, 210, 0.07);
+}
+
+/* CRT scanlines. */
+.terminal::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.5;
+  background: repeating-linear-gradient(180deg, transparent 0 3px, rgba(130, 164, 255, 0.025) 4px);
+}
+
+/* ── Composer ───────────────────────────────────────────────────────── */
+
+.composer-wrap { position: relative; }
+
+.composer-wrap::before {
+  content: '⌁  CHANNEL SECURE  ·  HUMAN APPROVAL REQUIRED  ·  AGENTS SYNCHRONIZED  ⌁';
+  display: block;
+  text-align: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 6px;
+  letter-spacing: 0.2em;
+  color: rgba(110, 133, 174, 0.34);
+  margin-bottom: 7px;
+}
+
+.composer {
+  border-radius: 14px;
+  box-shadow:
+    0 0 0 1px rgba(97, 231, 255, 0.03),
+    0 0 50px rgba(74, 110, 235, 0.12),
+    inset 0 0 25px rgba(97, 231, 255, 0.03);
+  transition: box-shadow 0.25s ease;
+}
+
+.composer:focus-within {
+  box-shadow:
+    0 0 0 1px rgba(97, 231, 255, 0.22),
+    0 0 60px rgba(74, 110, 235, 0.2),
+    inset 0 0 25px rgba(97, 231, 255, 0.05);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-shell::before,
+  .app-shell::after,
+  body::after,
+  .state-card .workflow-step.current::after {
+    animation: none;
+  }
+}
