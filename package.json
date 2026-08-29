@@ -10,6 +10,7 @@
     "dev:person5": "npm --prefix coding-review-agent run dev",
     "start": "node dist/server.js",
     "build": "tsc -p tsconfig.json",
+    "build:frontend": "npm --prefix frontend install && npm --prefix frontend run build",
     "build:all": "npm run build && npm run typecheck:person5",
     "test": "vitest run",
     "test:person1": "vitest run",
@@ -20,7 +21,8 @@
     "demo:person1": "tsx src/demo/seed.ts",
     "demo:person3": "npm --prefix ResearchAndCoding run demo:person3",
     "demo:integrated": "tsx scripts/integrated-demo.ts",
-    "install:all": "npm install && npm --prefix ResearchAndCoding install && npm --prefix coding-review-agent install"
+    "install:all": "npm install && npm --prefix ResearchAndCoding install && npm --prefix coding-review-agent install",
+    "preview:frontend": "npm --prefix frontend run preview -- --host 0.0.0.0 --port $PORT"
   },
   "dependencies": {
     "@fastify/cors": "^11.1.0",
