@@ -1,0 +1,381 @@
+/* ── Mission map ──────────────────────────────────────────────────────────
+   The journey map: where the team is on the project's development route.
+   Shares the cyan/violet/green accents defined in styles.css.            */
+
+.mission-map {
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 22px 24px 24px;
+  background:
+    radial-gradient(ellipse at 78% 8%, rgba(169, 140, 255, 0.1), transparent 46%),
+    radial-gradient(ellipse at 12% 92%, rgba(97, 231, 255, 0.07), transparent 44%),
+    linear-gradient(155deg, rgba(12, 26, 54, 0.82), rgba(6, 14, 32, 0.62));
+  box-shadow:
+    0 24px 70px rgba(0, 0, 0, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+  backdrop-filter: blur(14px);
+}
+
+.mission-map::before {
+  /* Faint navigational grid. */
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.5;
+  background-image:
+    linear-gradient(rgba(120, 152, 228, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(120, 152, 228, 0.05) 1px, transparent 1px);
+  background-size: 34px 34px;
+  mask-image: radial-gradient(ellipse at 50% 45%, #000 32%, transparent 78%);
+}
+
+.mission-map > * { position: relative; }
+
+/* ── Header ─────────────────────────────────────────────────────────── */
+
+.mission-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 28px;
+  flex-wrap: wrap;
+}
+
+.mission-id { display: flex; gap: 13px; align-items: center; }
+
+.mission-badge {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  color: #061024;
+  background: linear-gradient(140deg, var(--cyan), var(--violet));
+  box-shadow: 0 0 24px rgba(97, 231, 255, 0.4);
+  flex: none;
+}
+
+.mission-codename {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.24em;
+  color: rgba(150, 178, 235, 0.75);
+}
+
+.mission-head h2 {
+  margin: 2px 0 0;
+  font-size: 23px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+.mission-facts { display: flex; gap: 22px; flex-wrap: wrap; max-width: 620px; }
+
+.fact { display: flex; flex-direction: column; gap: 3px; min-width: 76px; }
+.fact.is-wide { max-width: 340px; }
+
+.fact span {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  letter-spacing: 0.2em;
+  color: rgba(138, 165, 220, 0.62);
+}
+
+.fact strong {
+  font-size: 12px;
+  font-weight: 500;
+  color: #d5e2ff;
+  line-height: 1.45;
+}
+
+/* ── Status line ────────────────────────────────────────────────────── */
+
+.mission-statusline {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 18px 0 4px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(146, 171, 255, 0.1);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.16em;
+}
+
+.mission-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  color: var(--cyan);
+  border: 1px solid rgba(97, 231, 255, 0.28);
+  background: rgba(97, 231, 255, 0.07);
+  box-shadow: 0 0 18px rgba(97, 231, 255, 0.12);
+}
+
+.mission-state.is-detour {
+  color: #ffc98a;
+  border-color: rgba(255, 201, 138, 0.3);
+  background: rgba(255, 201, 138, 0.08);
+  box-shadow: 0 0 18px rgba(255, 201, 138, 0.12);
+}
+
+.mission-repo { color: rgba(132, 158, 210, 0.6); }
+.mission-progress-read { margin-left: auto; color: rgba(169, 140, 255, 0.85); }
+
+/* ── Chart ──────────────────────────────────────────────────────────── */
+
+.chart-wrap { position: relative; margin-top: 6px; }
+.chart { display: block; width: 100%; height: auto; overflow: visible; }
+
+.chart-route {
+  fill: none;
+  stroke: rgba(133, 163, 226, 0.22);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 7;
+  stroke-linecap: round;
+}
+
+.chart-travelled {
+  fill: none;
+  stroke: url(#mm-travelled);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  transition: stroke-dasharray 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.node-orbit {
+  fill: rgba(8, 18, 40, 0.9);
+  stroke: rgba(133, 163, 226, 0.26);
+  stroke-width: 1;
+  transition: stroke 0.25s ease;
+}
+
+.node-core { fill: rgba(122, 152, 214, 0.42); transition: fill 0.25s ease; }
+
+.chart-node.is-done .node-orbit { stroke: rgba(103, 228, 193, 0.5); }
+.chart-node.is-done .node-core { fill: var(--green); }
+
+.chart-node.is-current .node-orbit { stroke: var(--cyan); }
+.chart-node.is-current .node-core { fill: var(--cyan); }
+
+.node-pulse {
+  fill: none;
+  stroke: var(--cyan);
+  stroke-width: 1.2;
+  transform-origin: center;
+  transform-box: fill-box;
+  animation: mm-ping 2.6s ease-out infinite;
+}
+
+@keyframes mm-ping {
+  0%   { opacity: 0.85; transform: scale(0.72); }
+  70%  { opacity: 0;    transform: scale(1.7); }
+  100% { opacity: 0;    transform: scale(1.7); }
+}
+
+.node-code,
+.node-label,
+.node-time {
+  text-anchor: middle;
+  font-family: 'JetBrains Mono', monospace;
+  fill: rgba(146, 174, 228, 0.72);
+}
+
+.node-code { font-size: 9px; letter-spacing: 0.18em; }
+.node-label { font-size: 11px; fill: #cddcff; letter-spacing: 0.02em; }
+.node-time { font-size: 8.5px; fill: rgba(132, 158, 210, 0.5); }
+
+.chart-node.is-current .node-label { fill: #fff; }
+.chart-node.is-upcoming .node-label { fill: rgba(154, 178, 224, 0.5); }
+
+.ship-halo {
+  fill: rgba(97, 231, 255, 0.08);
+  stroke: rgba(97, 231, 255, 0.34);
+  stroke-width: 1;
+}
+
+.ship-dot { fill: #fff; filter: drop-shadow(0 0 8px var(--cyan)); }
+
+/* Hit targets sit above the SVG so waypoints stay keyboard-reachable. */
+.chart-hits { position: absolute; inset: 0; }
+
+.hit {
+  position: absolute;
+  width: 46px;
+  height: 46px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+}
+
+.hit:focus-visible { outline: 2px solid var(--cyan); outline-offset: 3px; }
+.hit.is-focus { box-shadow: 0 0 0 1px rgba(169, 140, 255, 0.5); }
+
+.hit-crew {
+  position: absolute;
+  left: 50%;
+  top: -30px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 3px;
+}
+
+.crew-chip {
+  display: grid;
+  place-items: center;
+  width: 21px;
+  height: 21px;
+  border-radius: 50%;
+  font-size: 9.5px;
+  font-weight: 600;
+  color: #05101f;
+  border: 1px solid rgba(4, 12, 28, 0.85);
+  flex: none;
+}
+
+.crew-m { background: linear-gradient(140deg, #ff9ecb, #ff6fae); }
+.crew-j { background: linear-gradient(140deg, #8fd6ff, #4aa8ff); }
+.crew-s { background: linear-gradient(140deg, #ffd79a, #ffb454); }
+
+/* ── Detour banner ──────────────────────────────────────────────────── */
+
+.mission-detour {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 10px 14px;
+  border-radius: 11px;
+  font-size: 12px;
+  color: #ffd7a8;
+  border: 1px solid rgba(255, 201, 138, 0.24);
+  background: rgba(255, 201, 138, 0.07);
+}
+
+/* ── Detail ─────────────────────────────────────────────────────────── */
+
+.mission-detail {
+  display: grid;
+  grid-template-columns: 1fr 268px;
+  gap: 18px;
+  margin-top: 14px;
+}
+
+.detail-main,
+.detail-crew {
+  border: 1px solid rgba(146, 171, 255, 0.12);
+  border-radius: 14px;
+  padding: 16px 18px;
+  background: rgba(9, 20, 43, 0.5);
+}
+
+.detail-top { display: flex; align-items: center; gap: 13px; }
+
+.detail-code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 17px;
+  color: rgba(169, 140, 255, 0.55);
+}
+
+.detail-callsign {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  letter-spacing: 0.22em;
+  color: rgba(140, 167, 222, 0.68);
+}
+
+.detail-top h3 { margin: 2px 0 0; font-size: 16px; font-weight: 600; }
+
+.status-pill {
+  margin-left: auto;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  letter-spacing: 0.18em;
+  border: 1px solid;
+}
+
+.status-pill.is-done { color: var(--green); border-color: rgba(103, 228, 193, 0.32); background: rgba(103, 228, 193, 0.08); }
+.status-pill.is-current { color: var(--cyan); border-color: rgba(97, 231, 255, 0.34); background: rgba(97, 231, 255, 0.09); }
+.status-pill.is-upcoming { color: rgba(154, 178, 224, 0.72); border-color: rgba(146, 171, 255, 0.18); }
+
+.detail-main p {
+  margin: 11px 0 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: rgba(206, 221, 252, 0.82);
+}
+
+.detail-meta {
+  display: flex;
+  gap: 18px;
+  margin-top: 13px;
+  font-size: 11px;
+  color: rgba(140, 167, 222, 0.75);
+}
+
+.detail-meta span { display: inline-flex; align-items: center; gap: 5px; }
+
+.detail-crew-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  letter-spacing: 0.2em;
+  color: rgba(140, 167, 222, 0.68);
+  margin-bottom: 12px;
+}
+
+.crew-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; }
+.crew-row + .crew-row { border-top: 1px solid rgba(146, 171, 255, 0.07); }
+.crew-row > div { display: flex; flex-direction: column; line-height: 1.3; }
+.crew-row strong { font-size: 12.5px; font-weight: 500; }
+.crew-row span { font-size: 10px; color: rgba(140, 167, 222, 0.65); }
+
+.crew-station {
+  margin-left: auto;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8.5px;
+  letter-spacing: 0.1em;
+  color: rgba(169, 140, 255, 0.8);
+}
+
+/* ── Compact variant (Overview) ─────────────────────────────────────── */
+
+.mission-map.is-compact { padding: 18px 20px 20px; }
+.mission-map.is-compact .mission-facts { display: none; }
+.mission-map.is-compact .mission-head h2 { font-size: 18px; }
+
+.mission-open {
+  width: 100%;
+  margin-top: 12px;
+  padding: 9px;
+  border-radius: 10px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--cyan);
+  cursor: pointer;
+  border: 1px solid rgba(97, 231, 255, 0.24);
+  background: rgba(97, 231, 255, 0.06);
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.mission-open:hover { background: rgba(97, 231, 255, 0.12); border-color: rgba(97, 231, 255, 0.4); }
+
+@media (prefers-reduced-motion: reduce) {
+  .node-pulse { animation: none; }
+  .chart-travelled { transition: none; }
+}
+
+/* Full-width map above the overview grid. */
+.overview-map { margin-bottom: 22px; }
