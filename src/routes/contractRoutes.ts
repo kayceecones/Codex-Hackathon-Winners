@@ -1,4 +1,4 @@
-﻿import type { FastifyInstance } from "fastify";
+import type { FastifyInstance } from "fastify";
 import { actionStatuses, agentTargets, nextActionKinds } from "../contracts/agents.js";
 import { workflowEventTypes } from "../contracts/events.js";
 import { codingStatuses, leaderDecisions, reviewClassifications, workflowStates } from "../contracts/workflow.js";
@@ -20,7 +20,8 @@ export async function registerContractRoutes(app: FastifyInstance): Promise<void
       getProject: "GET /api/projects/:projectId",
       getEvents: "GET /api/projects/:projectId/events",
       getNextActions: "GET /api/projects/:projectId/next-actions",
-      sendEvent: "POST /api/events"
+      sendEvent: "POST /api/events",
+      sendPerson3Event: "POST /api/integrations/person3/events"
     }
   }));
 }

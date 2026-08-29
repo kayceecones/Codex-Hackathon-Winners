@@ -1,0 +1,26 @@
+{
+  "name": "coding-review-agent",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Coding Agent + Runloop execution + Review Agent for the Codex hackathon multiplayer AI project.",
+  "main": "src/server.ts",
+  "scripts": {
+    "start": "ts-node src/server.ts",
+    "dev": "ts-node-dev --respawn src/server.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "openai": "^7.8.0",
+    "@runloop/api-client": "^1.31.0",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.1"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.13.4",
+    "ts-node": "^10.9.1",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.0.0"
+  }
+}

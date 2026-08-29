@@ -1,4 +1,4 @@
-﻿{
+{
   "name": "codex-hackathon-winners-master-backend",
   "version": "0.1.0",
   "private": true,
@@ -6,11 +6,21 @@
   "description": "Person 1 Master Agent backend orchestration API for the Codex Hackathon Winners project.",
   "scripts": {
     "dev": "tsx watch src/server.ts",
+    "dev:master": "tsx watch src/server.ts",
+    "dev:person5": "npm --prefix coding-review-agent run dev",
     "start": "node dist/server.js",
     "build": "tsc -p tsconfig.json",
+    "build:all": "npm run build && npm run typecheck:person5",
     "test": "vitest run",
-    "test:watch": "vitest",
-    "demo": "tsx src/demo/seed.ts"
+    "test:person1": "vitest run",
+    "test:person3": "npm --prefix ResearchAndCoding test",
+    "test:all": "npm run test:person1 && npm run test:person3 && npm run typecheck:person5",
+    "typecheck:person5": "npm --prefix coding-review-agent run typecheck",
+    "demo": "npm run demo:integrated",
+    "demo:person1": "tsx src/demo/seed.ts",
+    "demo:person3": "npm --prefix ResearchAndCoding run demo:person3",
+    "demo:integrated": "tsx scripts/integrated-demo.ts",
+    "install:all": "npm install && npm --prefix ResearchAndCoding install && npm --prefix coding-review-agent install"
   },
   "dependencies": {
     "@fastify/cors": "^11.1.0",

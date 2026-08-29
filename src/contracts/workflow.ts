@@ -1,4 +1,4 @@
-﻿export const workflowStates = [
+export const workflowStates = [
   "idle",
   "awaiting_plan",
   "awaiting_leader_decision",
@@ -97,6 +97,7 @@ export interface PlanStep extends PlanStepInput {
 
 export interface PlanVersionInput {
   proposalId?: string;
+  version?: number;
   title: string;
   summary: string;
   steps: PlanStepInput[];
@@ -134,6 +135,7 @@ export interface ExecutionContract {
   id: string;
   projectId: string;
   planId: string;
+  planVersion: number;
   proposalId: string;
   objective: string;
   summary: string;

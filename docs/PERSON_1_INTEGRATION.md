@@ -1,12 +1,12 @@
-﻿# Person 1 Integration Guide
+# Person 1 Integration Guide
 
 Person 1 owns the Master Agent control plane. This backend receives workflow events, validates legal state transitions, records timeline history, and exposes the next action each teammate should consume.
 
 ## Quick Start
 
 ```powershell
-npm.cmd install
-npm.cmd run dev
+npm.cmd run install:all
+npm.cmd run dev:master
 ```
 
 Open:
@@ -15,14 +15,28 @@ Open:
 http://127.0.0.1:3001
 ```
 
+Setup details live in `docs/SETUP.md`.
+
 Use these first:
 
 - `GET /health` confirms the backend is running.
 - `GET /api/contracts` returns all supported states, events, actions, and review classifications.
 - `POST /api/projects` creates a real project id for the rest of the flow.
-- `POST /api/events` is the single workflow event intake endpoint.
+- `POST /api/events` is the canonical workflow event intake endpoint.
+- `POST /api/integrations/person3/events` accepts Person 3 output events and maps them into canonical Master events.
 
 Important: `GET /api/projects/:projectId` and `GET /api/projects/:projectId/next-actions` require a real project id returned by `POST /api/projects`. A fake id like `demo` correctly returns `404 Project not found`.
+
+## Project Structure
+
+```text
+/
+  src/                    Person 1 Master backend API
+  tests/                  Person 1 backend tests
+  docs/                   Shared setup and integration handoff docs
+  ResearchAndCoding/      Person 3 Brainstorm + Planning package
+  coding-review-agent/    Person 5 Coding + Runloop + Review package
+```
 
 ## Workflow Lifecycle
 
@@ -36,7 +50,7 @@ leader.requested_changes
 planning.completed
   -> Master creates await_leader_decision again
 leader.approved
-  -> Master creates invoke_coding with executionContract
+  -> Master creates invoke_coding with executionContract and codingReviewContract
 coding.completed
   -> Master creates invoke_review
 review.completed pass
@@ -82,7 +96,7 @@ Hard rule: Coding cannot start before `leader.approved` creates an `invoke_codin
 
 ### Person 2: Database + Notion Memory
 
-Person 2 should replace `InMemoryStore` with a database-backed class that implements `src/adapters/store/Store.ts`.
+Person 2 should replace `InMemoryStore` with a database-backed class that implements `src/adapters/store/Store.ts`. For the detailed storage handoff, use `docs/MEMORY_ADAPTER.md`.
 
 Required responsibilities:
 
@@ -99,9 +113,14 @@ import type { Store } from "../src/adapters/store/Store.js";
 
 ### Person 3: Brainstorm + Planning Agents
 
-Person 3 sends ideas and plans into the Master backend.
+Person 3 code lives in `ResearchAndCoding/`.
 
-When a team member confirms a proposal, send `proposal.accepted`:
+Person 3 can integrate in two ways:
+
+- Preferred: send canonical Master events to `POST /api/events`.
+- Fast bridge: send existing Person 3 output events to `POST /api/integrations/person3/events`.
+
+When a team member confirms a proposal, send canonical `proposal.accepted`:
 
 ```json
 {
@@ -119,7 +138,7 @@ When a team member confirms a proposal, send `proposal.accepted`:
 }
 ```
 
-When Planning finishes a plan or revised plan, send `planning.completed`:
+When Planning finishes a plan or revised plan, send canonical `planning.completed`:
 
 ```json
 {
@@ -128,6 +147,7 @@ When Planning finishes a plan or revised plan, send `planning.completed`:
   "actor": { "name": "Planning Agent", "role": "planning" },
   "payload": {
     "plan": {
+      "version": 3,
       "title": "Plan v3: frontend-only dark mode",
       "summary": "Add theme tokens, toggle UI, and local persistence.",
       "feedbackAddressed": "Removed backend work and kept frontend-only scope.",
@@ -140,15 +160,40 @@ When Planning finishes a plan or revised plan, send `planning.completed`:
 }
 ```
 
-Person 3 should also read `invoke_planning` actions from:
+Fast bridge example for Person 3's existing event shape:
 
-```text
-GET /api/projects/:projectId/next-actions
+```json
+{
+  "type": "person3.plan_version_ready",
+  "payload": {
+    "projectId": "project_123",
+    "planVersion": {
+      "id": "plan-v2",
+      "projectId": "project_123",
+      "proposalId": "proposal-1",
+      "version": 2,
+      "title": "Plan v2: Dark Mode",
+      "summary": "Add dark mode with frontend-only scope.",
+      "tasks": ["Create theme toggle.", "Persist preference locally."],
+      "acceptanceCriteria": ["Theme persists across reloads."],
+      "risks": ["Hard-coded colors may remain."],
+      "leaderFeedback": null
+    }
+  }
+}
 ```
+
+Bridge behavior:
+
+- `person3.proposal_ready` with draft proposal is recorded as accepted by the endpoint but does not move Master state.
+- `person3.proposal_ready` with confirmed proposal maps to `proposal.accepted`.
+- `person3.plan_version_ready` maps to `planning.completed`.
+- If the Master project is still `idle`, `person3.plan_version_ready` also creates a synthetic `proposal.accepted` first.
+- Person 3 plan `version` is preserved for frontend plan history.
 
 ### Person 4: Frontend / UX
 
-Person 4 should use the Master backend as the dashboard state API.
+Person 4 should use the Master backend as the dashboard state API. For a route-by-route frontend reference, use `docs/FRONTEND_ENDPOINTS.md`.
 
 Read:
 
@@ -191,15 +236,34 @@ UI should show:
 
 ### Person 5: Coding + Runloop + Review
 
+Person 5 code lives in `coding-review-agent/`.
+
 Person 5 should consume `invoke_coding` and `invoke_review` actions from:
 
 ```text
 GET /api/projects/:projectId/next-actions
 ```
 
-Coding starts only when an `invoke_coding` action exists. Its payload contains `executionContract`, including the approved plan id, objective, steps, acceptance criteria, and constraints.
+Coding starts only when an `invoke_coding` action exists. Its payload contains both shapes:
 
-After coding finishes, send `coding.completed`:
+- `executionContract`: canonical Person 1 contract.
+- `codingReviewContract`: Person 5 compatible payload for `POST /execution-contract`.
+
+Send `codingReviewContract` to Person 5:
+
+```text
+POST http://127.0.0.1:4005/execution-contract
+```
+
+Person 5 `.env` should include:
+
+```text
+MASTER_API_URL=http://127.0.0.1:3001
+```
+
+When `MASTER_API_URL` is set, Person 5 posts canonical `coding.completed` and `review.completed` events back to Master automatically.
+
+Manual `coding.completed` shape:
 
 ```json
 {
@@ -217,7 +281,7 @@ After coding finishes, send `coding.completed`:
 }
 ```
 
-After review finishes, send `review.completed`:
+Manual `review.completed` shape:
 
 ```json
 {
@@ -248,5 +312,4 @@ Review classifications:
 - Use `GET /api/contracts` as the runtime source of valid states and event names.
 - Every successful `POST /api/events` returns the transition, updated snapshot, dispatched actions, and currently pending next actions.
 - The state machine is pure and lives in `src/master/stateMachine.ts`.
-- HTTP routes and storage are intentionally separate from state transitions so teammate integrations can evolve safely.
-
+- HTTP routes, integration adapters, and storage are intentionally separate from state transitions so teammate integrations can evolve safely.

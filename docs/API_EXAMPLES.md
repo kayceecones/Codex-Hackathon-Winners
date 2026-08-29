@@ -1,4 +1,4 @@
-﻿# API Examples
+# API Examples
 
 Start the backend:
 
@@ -21,14 +21,14 @@ curl.exe http://localhost:3001/health
 curl.exe http://localhost:3001/api/contracts
 ```
 
-## Full Demo Flow
+## Full Integrated Flow
 
 Run these commands in PowerShell. The first command stores the generated project id in `$projectId`, so the rest of the commands can be pasted without manually replacing placeholders.
 
 ### 1. Create A Project
 
 ```powershell
-$created = Invoke-RestMethod -Method Post -Uri "http://localhost:3001/api/projects" -ContentType "application/json" -Body '{"name":"Codex Hackathon Winners Demo","description":"Agentic project operating system demo","leader":"Leader"}'
+$created = Invoke-RestMethod -Method Post -Uri "http://localhost:3001/api/projects" -ContentType "application/json" -Body '{"name":"Codex Hackathon Winners Project","description":"Agentic project operating system","leader":"Leader"}'
 $projectId = $created.snapshot.project.id
 $projectId
 ```
@@ -221,3 +221,45 @@ Invoke-RestMethod -Method Post -Uri "http://localhost:3001/api/events" -ContentT
   payload = @{ leader = "Leader"; reason = "Out of hackathon scope." }
 } | ConvertTo-Json -Depth 8)
 ```
+## Person 3 Compatibility Flow
+
+After creating `$projectId`, Person 3 can send its existing `plan_version_ready` event to Master:
+
+```powershell
+Invoke-RestMethod -Method Post -Uri "http://localhost:3001/api/integrations/person3/events" -ContentType "application/json" -Body (@{
+  type = "person3.plan_version_ready"
+  payload = @{
+    projectId = $projectId
+    planVersion = @{
+      id = "plan-v2"
+      projectId = $projectId
+      proposalId = "proposal-1"
+      version = 2
+      title = "Plan v2: Dark Mode"
+      summary = "Add dark mode with frontend-only scope."
+      tasks = @("Create theme toggle.", "Persist preference locally.")
+      acceptanceCriteria = @("Theme persists across reloads.")
+      risks = @("Hard-coded colors may remain.")
+      leaderFeedback = $null
+    }
+  }
+} | ConvertTo-Json -Depth 10)
+```
+
+## Person 5 Contract Handoff
+
+After `leader.approved`, read the pending coding action:
+
+```powershell
+$actions = Invoke-RestMethod -Uri "http://localhost:3001/api/projects/$projectId/next-actions"
+$codingAction = $actions.actions | Where-Object { $_.kind -eq "invoke_coding" } | Select-Object -First 1
+$codingAction.payload.codingReviewContract | ConvertTo-Json -Depth 10
+```
+
+Send that `codingReviewContract` to Person 5's service:
+
+```powershell
+Invoke-RestMethod -Method Post -Uri "http://localhost:4005/execution-contract" -ContentType "application/json" -Body ($codingAction.payload.codingReviewContract | ConvertTo-Json -Depth 10)
+```
+
+If `coding-review-agent/.env` contains `MASTER_API_URL=http://127.0.0.1:3001`, Person 5 posts `coding.completed` and `review.completed` back to Master automatically.

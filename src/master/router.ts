@@ -1,4 +1,5 @@
-﻿import type { NextAction } from "../contracts/agents.js";
+import type { NextAction } from "../contracts/agents.js";
+import { toCodingReviewContract } from "../integrations/codingReviewContract.js";
 import type { TransitionRuntime, WorkflowTransition } from "./stateMachine.js";
 
 export function routeTransition(transition: WorkflowTransition, runtime: TransitionRuntime): NextAction[] {
@@ -49,7 +50,10 @@ export function routeTransition(transition: WorkflowTransition, runtime: Transit
           ...base,
           kind: "invoke_coding",
           target: "coding",
-          payload: { executionContract: transition.route.executionContract }
+          payload: {
+            executionContract: transition.route.executionContract,
+            codingReviewContract: toCodingReviewContract(transition.route.executionContract)
+          }
         }
       ];
 

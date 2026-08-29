@@ -1,4 +1,4 @@
-﻿import type { FastifyInstance } from "fastify";
+import type { FastifyInstance } from "fastify";
 
 export async function registerRootRoutes(app: FastifyInstance): Promise<void> {
   app.get("/", async (_request, reply) => {
@@ -91,6 +91,7 @@ export async function registerRootRoutes(app: FastifyInstance): Promise<void> {
         <li><a href="/api/contracts"><code>GET /api/contracts</code> - supported states, events, and actions</a></li>
         <li><span class="endpoint"><code>POST /api/projects</code> - create a project and copy <code>snapshot.project.id</code></span></li>
         <li><span class="endpoint"><code>POST /api/events</code> - send proposal, planning, leader, coding, and review events</span></li>
+        <li><span class="endpoint"><code>POST /api/integrations/person3/events</code> - accept Person 3 output events</span></li>
         <li><span class="endpoint"><code>GET /api/projects/{projectId}</code> - read project snapshot after creating a project</span></li>
         <li><span class="endpoint"><code>GET /api/projects/{projectId}/next-actions</code> - read pending teammate actions</span></li>
       </ul>

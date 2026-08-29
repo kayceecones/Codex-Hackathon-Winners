@@ -1,4 +1,4 @@
-﻿import type { ExecutionContract, PlanVersion, Proposal, ReviewIssue } from "./workflow.js";
+import type { ExecutionContract, PlanVersion, Proposal, ReviewIssue } from "./workflow.js";
 
 export const nextActionKinds = [
   "invoke_planning",
@@ -19,6 +19,18 @@ export type AgentTarget = (typeof agentTargets)[number];
 export const actionStatuses = ["pending", "completed", "failed"] as const;
 
 export type ActionStatus = (typeof actionStatuses)[number];
+
+export interface CodingReviewExecutionContract {
+  execution_contract_id: string;
+  project_id: string;
+  plan_version: number;
+  tasks: string[];
+  files_or_areas: string[];
+  constraints: string[];
+  acceptance_criteria: string[];
+  context: Record<string, unknown>;
+  verify_script?: "dark-mode" | "mobile-responsive";
+}
 
 export interface NextActionBase<TKind extends NextActionKind, TPayload> {
   id: string;
@@ -54,7 +66,7 @@ export type AwaitLeaderDecisionAction = NextActionBase<
 
 export type InvokeCodingAction = NextActionBase<
   "invoke_coding",
-  { executionContract: ExecutionContract }
+  { executionContract: ExecutionContract; codingReviewContract: CodingReviewExecutionContract }
 >;
 
 export type InvokeReviewAction = NextActionBase<

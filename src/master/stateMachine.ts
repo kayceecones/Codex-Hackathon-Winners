@@ -1,4 +1,4 @@
-﻿import type { IncomingWorkflowEvent, WorkflowEventType } from "../contracts/events.js";
+import type { IncomingWorkflowEvent, WorkflowEventType } from "../contracts/events.js";
 import {
   codingStatuses,
   reviewClassifications,
@@ -140,6 +140,7 @@ function makeExecutionContract(
     id: runtime.id("contract"),
     projectId: project.id,
     planId: plan.id,
+    planVersion: plan.version,
     proposalId: plan.proposalId,
     objective: plan.title,
     summary: plan.summary,
@@ -290,7 +291,7 @@ export function applyWorkflowEvent(
         id: runtime.id("plan"),
         projectId: project.id,
         proposalId,
-        version: snapshot.plans.length + 1,
+        version: typeof input.version === "number" && input.version > 0 ? input.version : snapshot.plans.length + 1,
         title: requireString(input.title, "plan.title"),
         summary: requireString(input.summary, "plan.summary"),
         steps: buildSteps(input.steps, runtime),

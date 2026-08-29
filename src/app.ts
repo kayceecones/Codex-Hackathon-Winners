@@ -1,4 +1,4 @@
-﻿import cors from "@fastify/cors";
+import cors from "@fastify/cors";
 import Fastify, { type FastifyInstance } from "fastify";
 import { DemoAgentGateway } from "./adapters/agents/DemoAgentGateway.js";
 import type { AgentGateway } from "./adapters/agents/AgentGateway.js";
@@ -9,6 +9,7 @@ import { WorkflowTransitionError } from "./master/errors.js";
 import { registerContractRoutes } from "./routes/contractRoutes.js";
 import { registerEventRoutes } from "./routes/eventRoutes.js";
 import { registerHealthRoutes } from "./routes/healthRoutes.js";
+import { registerIntegrationRoutes } from "./routes/integrationRoutes.js";
 import { registerProjectRoutes } from "./routes/projectRoutes.js";
 import { registerRootRoutes } from "./routes/rootRoutes.js";
 
@@ -63,8 +64,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   await registerContractRoutes(app);
   await registerProjectRoutes(app, { store, agentGateway });
   await registerEventRoutes(app, { store, agentGateway });
+  await registerIntegrationRoutes(app, { store, agentGateway });
 
   return app;
 }
-
-
