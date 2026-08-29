@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Support Dashboard</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>Customer Support Dashboard</h1>
+  </header>
+
+  <main class="layout">
+    <section class="panel ticket-list" aria-label="Ticket List">
+      <h2>Tickets</h2>
+      <ul id="ticket-list">
+        <li class="ticket active" data-ticket-id="1">#1 - Can't reset password</li>
+        <li class="ticket" data-ticket-id="2">#2 - Billing question</li>
+        <li class="ticket" data-ticket-id="3">#3 - Feature request: dark mode</li>
+      </ul>
+    </section>
+
+    <section class="panel customer-details" aria-label="Customer Details">
+      <h2>Customer Details</h2>
+      <dl>
+        <dt>Name</dt>
+        <dd id="customer-name">Jordan Lee</dd>
+        <dt>Plan</dt>
+        <dd id="customer-plan">Pro</dd>
+        <dt>Member since</dt>
+        <dd id="customer-since">2024-02-11</dd>
+      </dl>
+    </section>
+
+    <section class="panel ai-assistant" aria-label="AI Response Assistant">
+      <h2>AI Response Assistant</h2>
+      <textarea id="ai-response" readonly>Hi Jordan, thanks for reaching out - I can help you reset your password right away.</textarea>
+      <button id="send-response">Send</button>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
