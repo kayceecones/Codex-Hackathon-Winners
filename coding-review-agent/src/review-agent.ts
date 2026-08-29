@@ -13,6 +13,9 @@ export interface ReviewResult {
 }
 
 function isWithinScope(filePath: string, filesOrAreas: string[]): boolean {
+  // Person 3's PlanVersion has no file-path-level field (only prose `scope`
+  // and `impactedOwners`) - until Person 1 derives real paths for the
+  // execution contract, filesOrAreas arrives empty and this check no-ops.
   if (filesOrAreas.length === 0) return true;
   return filesOrAreas.some((area) => {
     const prefix = area.endsWith('/') ? area : `${area}/`;

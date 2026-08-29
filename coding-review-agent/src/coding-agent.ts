@@ -61,7 +61,13 @@ export interface ExecutionContractTask {
   tasks: string[];
   constraints: string[];
   filesOrAreas: string[];
-  context: string[];
+  /**
+   * Either a flat list of context notes, or Person 3's richer PlanningContext
+   * object (projectSummary, currentPlanSummary, leaderFeedback, etc.) - their
+   * PlanVersion.planningContext shape. Accept both until Person 1 settles the
+   * execution contract's actual field types.
+   */
+  context: string[] | Record<string, unknown>;
 }
 
 export interface CodingAgentResult {
@@ -71,15 +77,27 @@ export interface CodingAgentResult {
   iterations: number;
 }
 
+function formatContext(context: string[] | Record<string, unknown>): string {
+  if (Array.isArray(context)) {
+    return context.map((item) => `- ${item}`).join('\n');
+  }
+  return Object.entries(context)
+    .filter(([, value]) => value !== null && value !== undefined && value !== '')
+    .map(([key, value]) => `- ${key}: ${Array.isArray(value) ? value.join(', ') : value}`)
+    .join('\n');
+}
+
 function buildTaskDescription(task: ExecutionContractTask): string {
   const section = (title: string, items: string[]) =>
     items.length ? `${title}:\n${items.map((item) => `- ${item}`).join('\n')}` : '';
+
+  const contextBody = formatContext(task.context);
 
   return [
     section('Tasks', task.tasks),
     section('Constraints', task.constraints),
     section('Files/areas in scope', task.filesOrAreas),
-    section('Context', task.context),
+    contextBody ? `Context:\n${contextBody}` : '',
   ]
     .filter(Boolean)
     .join('\n\n');

@@ -13,8 +13,12 @@ const PORT = Number(process.env.PORT ?? 4005);
 const SEED_DIR = path.join(__dirname, '..', 'seed');
 const VERIFY_DIR = path.join(__dirname, 'verify');
 
-// Proposed shape from CODING_AGENT_PLAN.md §8 - field names to confirm with
-// Person 1 (Master Agent) and Person 3 (Planning) once their contracts settle.
+// Proposed shape from CODING_AGENT_PLAN.md §8 - field names/casing to confirm
+// with Person 1 (Master Agent) once the real execution contract is built from
+// Person 3's PlanVersion. acceptance_criteria/tasks are confirmed to match
+// PlanVersion.acceptanceCriteria/tasks (camelCase there, snake_case here);
+// files_or_areas has no PlanVersion equivalent yet - Person 1 needs to derive
+// it, or it stays empty and Review's scope check no-ops (see §8/§6).
 interface ExecutionContract {
   execution_contract_id: string;
   project_id: string;
@@ -23,7 +27,8 @@ interface ExecutionContract {
   files_or_areas: string[];
   constraints: string[];
   acceptance_criteria: string[];
-  context: string[];
+  /** Flat notes, or Person 3's richer PlanningContext object - both accepted. */
+  context: string[] | Record<string, unknown>;
   /** Name of a script in src/verify/ (without .js), e.g. "dark-mode". */
   verify_script?: string;
 }
