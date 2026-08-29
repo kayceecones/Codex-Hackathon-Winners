@@ -1,0 +1,13 @@
+{
+  "name": "research-and-coding-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "demo:person3": "node demo/person3-demo.ts",
+    "test": "node --test test/*.test.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^26.4.0"
+  }
+}
