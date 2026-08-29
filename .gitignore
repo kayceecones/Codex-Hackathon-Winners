@@ -8,6 +8,10 @@ node_modules/
 dist/
 coverage/
 
+# SQLite dev database (Person 2 / DbStore)
+prisma/dev.db
+prisma/dev.db-journal
+
 # Local environment and machine files
 .env
 .env.*

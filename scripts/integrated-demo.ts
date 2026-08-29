@@ -1,4 +1,6 @@
+import "dotenv/config";
 import { buildApp } from "../src/app.js";
+import { DbStore } from "../src/adapters/store/DbStore.js";
 import type { EventAcceptedResponse, ProjectResponse } from "../src/contracts/api.js";
 import {
   DemoMemoryStore,
@@ -8,7 +10,7 @@ import {
 } from "../ResearchAndCoding/src/person3/index.ts";
 import { review } from "../coding-review-agent/src/review-agent.ts";
 
-const app = await buildApp();
+const app = await buildApp({ store: new DbStore() });
 const memory = new DemoMemoryStore();
 const person3Services = { memory };
 const member = { id: "member-demo", name: "Demo Member" };

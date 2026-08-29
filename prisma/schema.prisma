@@ -1,0 +1,133 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Mirrors src/contracts/workflow.ts. Timestamps/ids are plain strings because
+// the state machine (src/master/stateMachine.ts) generates them itself via
+// createId()/nowIso() before handing records to the Store - this store only
+// persists what it's given, it never mints ids.
+
+model ProjectRow {
+  id                         String  @id
+  name                       String
+  description                String?
+  status                     String
+  leader                     String?
+  currentProposalId          String?
+  currentPlanId              String?
+  approvedPlanId             String?
+  currentExecutionContractId String?
+  currentExecutionId         String?
+  currentReviewId            String?
+  previousStateBeforeHold    String?
+  exitReason                 String?
+  createdAt                  String
+  updatedAt                  String
+}
+
+model ProposalRow {
+  id                 String @id
+  projectId          String
+  title              String
+  summary            String
+  proposer           String
+  rationale          String?
+  acceptanceCriteria String // JSON string[]
+  risks              String // JSON string[]
+  createdAt          String
+
+  @@index([projectId])
+}
+
+model PlanVersionRow {
+  id                 String  @id
+  projectId          String
+  proposalId         String
+  version            Int
+  title              String
+  summary            String
+  steps              String // JSON PlanStep[]
+  acceptanceCriteria String // JSON string[]
+  risks              String // JSON string[]
+  feedbackAddressed  String?
+  createdAt          String
+
+  @@index([projectId])
+}
+
+model ApprovalRow {
+  id        String  @id
+  projectId String
+  planId    String?
+  decision  String
+  leader    String
+  feedback  String?
+  reason    String?
+  createdAt String
+
+  @@index([projectId])
+}
+
+model ExecutionContractRow {
+  id                 String @id
+  projectId          String
+  planId             String
+  planVersion        Int
+  proposalId         String
+  objective          String
+  summary            String
+  steps              String // JSON PlanStep[]
+  acceptanceCriteria String // JSON string[]
+  constraints        String // JSON string[]
+  reason             String
+  createdAt          String
+
+  @@index([projectId])
+}
+
+model CodingResultRow {
+  id                  String  @id
+  projectId           String
+  planId              String
+  executionContractId String?
+  status              String
+  summary             String
+  filesChanged        String // JSON string[]
+  commandsRun         String // JSON string[]
+  output              String?
+  createdAt           String
+
+  @@index([projectId])
+}
+
+model ReviewResultRow {
+  id             String  @id
+  projectId      String
+  planId         String
+  executionId    String?
+  classification String
+  summary        String
+  issues         String // JSON ReviewIssue[]
+  createdAt      String
+
+  @@index([projectId])
+}
+
+model EventRow {
+  id         String  @id
+  projectId  String
+  type       String
+  actor      String? // JSON Actor
+  occurredAt String
+  fromState  String
+  toState    String
+  message    String
+  payload    String // JSON
+
+  @@index([projectId])
+}
