@@ -1,5 +1,6 @@
 import cors from "@fastify/cors";
 import Fastify, { type FastifyInstance } from "fastify";
+import { CodingReviewAgentGateway } from "./adapters/agents/CodingReviewAgentGateway.js";
 import { DemoAgentGateway } from "./adapters/agents/DemoAgentGateway.js";
 import type { AgentGateway } from "./adapters/agents/AgentGateway.js";
 import { InMemoryStore } from "./adapters/store/InMemoryStore.js";
@@ -19,10 +20,25 @@ export interface BuildAppOptions {
   logger?: boolean;
 }
 
+/**
+ * With CODING_REVIEW_URL set, approved plans are dispatched to the real
+ * Coding + Review service. Without it, behaviour is unchanged: actions are
+ * recorded and the workflow advances only when a coding.completed event
+ * arrives - which is what the tests and the scripted demo rely on.
+ */
+function buildDefaultAgentGateway(): AgentGateway {
+  const demoGateway = new DemoAgentGateway();
+  const codingReviewUrl = process.env.CODING_REVIEW_URL?.replace(/\/+$/, "");
+
+  if (!codingReviewUrl) return demoGateway;
+
+  return new CodingReviewAgentGateway(demoGateway, codingReviewUrl);
+}
+
 export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyInstance> {
   const app = Fastify({ logger: options.logger ?? false });
   const store = options.store ?? new InMemoryStore();
-  const agentGateway = options.agentGateway ?? new DemoAgentGateway();
+  const agentGateway = options.agentGateway ?? buildDefaultAgentGateway();
 
   await app.register(cors, { origin: true });
 
