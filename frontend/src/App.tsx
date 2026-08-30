@@ -32,22 +32,27 @@ export default function App() {
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
 
+  const [attempt, setAttempt] = useState(0);
+  const [failures, setFailures] = useState(0);
+
   useEffect(() => {
     let live = true;
+    setMode('connecting');
     api.load().then((v) => {
       if (!live) return;
       setView(v);
       setMode(v.mode);
+      setFailures(0);
       setNote(
         v.mode === 'live'
           ? 'Connected to the Master backend. Decisions are recorded server-side.'
-          : 'Backend unreachable — running on bundled demo data.'
+          : `${v.reason || 'Backend unavailable.'} Running on bundled demo data.`
       );
     });
     return () => {
       live = false;
     };
-  }, []);
+  }, [attempt]);
 
   // Weave is multiplayer: refresh so one person's decision reaches the others.
   useEffect(() => {
@@ -55,7 +60,20 @@ export default function App() {
     const id = view.projectId;
     const timer = setInterval(() => {
       if (busy) return;
-      api.refresh(id).then(setView).catch(() => {});
+      api
+        .refresh(id)
+        .then((v) => {
+          setView(v);
+          setFailures(0);
+        })
+        .catch(() => {
+          // A teammate's deploy can restart the server mid-session. Tolerate
+          // a blip, but don't sit on a permanently broken connection.
+          setFailures((n) => {
+            if (n + 1 >= 3) setAttempt((a) => a + 1);
+            return n + 1;
+          });
+        });
     }, 10000);
     return () => clearInterval(timer);
   }, [mode, view.projectId, busy]);
@@ -162,7 +180,12 @@ export default function App() {
         {note && (
           <div className="toast">
             {note}
-            <button onClick={() => setNote('')} aria-label="Dismiss">
+            {mode === 'demo' && (
+              <button className="btn" style={{ marginLeft: 'auto' }} onClick={() => setAttempt((a) => a + 1)}>
+                Retry
+              </button>
+            )}
+            <button onClick={() => setNote('')} aria-label="Dismiss" style={mode === 'demo' ? { marginLeft: 12 } : undefined}>
               <X size={14} />
             </button>
           </div>
