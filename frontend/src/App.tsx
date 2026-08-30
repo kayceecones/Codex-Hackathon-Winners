@@ -133,6 +133,20 @@ export default function App() {
     );
   }
 
+  /** Open another seeded project from the queue. */
+  async function openProject(projectId: string) {
+    if (mode !== 'live' || projectId === view.projectId) return;
+    setBusy(true);
+    try {
+      setView(await api.open(projectId));
+      setNote('');
+    } catch (e) {
+      setNote(`Could not open that project: ${(e as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const resume = () =>
     run(
       (pid) => api.resume(pid),
@@ -203,12 +217,12 @@ export default function App() {
           </div>
         )}
 
-        {tab === 'OVERVIEW' && <Overview view={view} picked={picked} setPicked={setPicked} />}
-        {tab === 'BRIEF' && <BriefScreen project={project} />}
-        {tab === 'PLAN' && <PlanScreen project={project} />}
+        {tab === 'OVERVIEW' && <Overview view={view} picked={picked} setPicked={setPicked} onOpen={openProject} />}
+        {tab === 'BRIEF' && <BriefScreen view={view} />}
+        {tab === 'PLAN' && <PlanScreen view={view} />}
         {tab === 'LEADER' && (
           <LeaderScreen
-            project={project}
+            view={view}
             feedback={feedback}
             setFeedback={setFeedback}
             onDecide={decide}
@@ -253,34 +267,59 @@ function Overview({
   view,
   picked,
   setPicked,
+  onOpen,
 }: {
   view: View;
   picked: Phase['id'] | null;
   setPicked: (p: Phase['id']) => void;
+  onOpen: (projectId: string) => void;
 }) {
-  const { project, missions } = view;
+  const { project, queue, missions } = view;
   const state = project.state;
   const here = phaseIndex(state);
   const focus = pipeline.find((p) => p.id === (picked ?? state)) ?? pipeline[0];
   const pct = here < 0 ? 0 : Math.round((here / (pipeline.length - 1)) * 100);
+  const { checked } = useChecks(view.projectId);
+  const done = project.brief.acceptance.filter((a) => checked.includes(a)).length;
+
+  // Live queue when seeded; otherwise the bundled demo rows.
+  const rows: { id: string | null; title: string; owner: string; label: string; tone: string }[] =
+    queue.length > 0
+      ? queue.map((q) => ({
+          id: q.projectId,
+          title: q.title,
+          owner: q.owner,
+          label: STATE_LABEL[q.state] ?? q.state,
+          tone: STATE_TONE[q.state] ?? 'info',
+        }))
+      : missions.map((m: Mission) => ({ id: null, title: m.title, owner: m.owner, label: m.status, tone: m.tone }));
 
   return (
     <div className="deck-grid">
-      <Panel title="Mission Queue" count={`${missions.length}`}>
-        {missions.length === 0 && <p className="lead">No proposals yet.</p>}
-        {missions.map((m: Mission) => (
-          <div className="mission" key={m.title}>
-            <div className="mission-hex">{m.title[0]}</div>
-            <div>
-              <h4>{m.title}</h4>
-              <div className="owner">{m.owner}</div>
-              <span className={`chip tone-${m.tone}`}>
-                <i />
-                {m.status}
-              </span>
-            </div>
-          </div>
-        ))}
+      <Panel title="Mission Queue" count={`${rows.length}`}>
+        {rows.length === 0 && <p className="lead">No proposals yet.</p>}
+        {rows.map((r) => {
+          const active = r.id !== null && r.id === view.projectId;
+          return (
+            <button
+              key={r.title}
+              type="button"
+              className={`mission ${active ? 'is-active' : ''}`}
+              onClick={() => r.id && onOpen(r.id)}
+              disabled={r.id === null}
+            >
+              <div className="mission-hex">{r.title[0]}</div>
+              <div>
+                <h4>{r.title}</h4>
+                <div className="owner">{r.owner}</div>
+                <span className={`chip tone-${r.tone}`}>
+                  <i />
+                  {r.label}
+                </span>
+              </div>
+            </button>
+          );
+        })}
       </Panel>
 
       <Panel title="Objective Tracker" count={`${pct}%`}>
@@ -315,28 +354,51 @@ function Overview({
           <span className="v">v{project.planVersion}</span>
         </div>
 
-        <div className="fb-label">Acceptance checklist</div>
-        {project.brief.acceptance.slice(0, 4).map((a: string) => (
-          <div className="check" key={a}>
-            <span />
-            {a}
-          </div>
-        ))}
+        <div className="fb-label">
+          Acceptance checklist
+          <span style={{ float: 'right', fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--dim)' }}>
+            {done}/{project.brief.acceptance.length}
+          </span>
+        </div>
+        <Criteria items={project.brief.acceptance} projectId={view.projectId} />
       </Panel>
     </div>
   );
 }
 
+/** How each workflow state reads in the queue. */
+const STATE_LABEL: Record<string, string> = {
+  idle: 'NEW',
+  awaiting_plan: 'PLANNING',
+  awaiting_leader_decision: 'AWAITING GATE',
+  awaiting_coding: 'CODING',
+  awaiting_review: 'IN REVIEW',
+  completed: 'DELIVERED',
+  on_hold: 'ON HOLD',
+  exited: 'CLOSED',
+};
+
+const STATE_TONE: Record<string, string> = {
+  idle: 'info',
+  awaiting_plan: 'info',
+  awaiting_leader_decision: 'warn',
+  awaiting_coding: 'go',
+  awaiting_review: 'warn',
+  completed: 'go',
+  on_hold: 'hold',
+  exited: 'stop',
+};
+
 /* ── Shared blocks ───────────────────────────────────────────────────── */
 
-function Risks({ project }: { project: Project }) {
-  if (project.brief.risks.length === 0) return <p className="lead">No risks recorded on this plan.</p>;
+function Risks({ risks }: { risks: { name: string; level?: string; note?: string }[] }) {
+  if (risks.length === 0) return <p className="lead">No risks recorded on this plan.</p>;
   return (
     <>
-      {project.brief.risks.map((r) => (
+      {risks.map((r) => (
         <div className="risk" key={r.name}>
           <span className="rn">{r.name}</span>
-          <span className={`rv lvl-${r.level ?? ''}`}>{r.level ?? ''}</span>
+          <span className={`rv lvl-${r.level ?? ''}`}>{r.level ?? '—'}</span>
           <span className="rd">{r.note ?? ''}</span>
         </div>
       ))}
@@ -344,53 +406,138 @@ function Risks({ project }: { project: Project }) {
   );
 }
 
-function Criteria({ items }: { items: string[] }) {
+/**
+ * Acceptance criteria a leader can actually tick off while reviewing.
+ * Ticks are the reviewer's own working state, so they stay in the browser
+ * rather than being written back as workflow events.
+ */
+const checkKey = (projectId: string | null) => `weave.checks.${projectId ?? 'demo'}`;
+
+function readChecks(key: string): string[] {
+  try {
+    const raw = localStorage.getItem(key);
+    const parsed = raw ? (JSON.parse(raw) as string[]) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * The checklist is rendered in more than one place at once (the panel and
+ * the Overview counter), so the ticks live in one store every instance
+ * subscribes to. Independent useState copies would drift apart.
+ */
+const checkSubscribers = new Set<() => void>();
+
+function useChecks(projectId: string | null) {
+  const storeKey = checkKey(projectId);
+  const [checked, setChecked] = useState<string[]>(() => readChecks(storeKey));
+
+  useEffect(() => {
+    const sync = () => setChecked(readChecks(storeKey));
+    sync();
+    checkSubscribers.add(sync);
+    return () => {
+      checkSubscribers.delete(sync);
+    };
+  }, [storeKey]);
+
+  const toggle = (item: string) => {
+    const current = readChecks(storeKey);
+    const next = current.includes(item) ? current.filter((x) => x !== item) : [...current, item];
+    try {
+      localStorage.setItem(storeKey, JSON.stringify(next));
+    } catch {
+      /* private mode */
+    }
+    checkSubscribers.forEach((fn) => fn());
+  };
+
+  return { checked, toggle };
+}
+
+function Criteria({ items, projectId }: { items: string[]; projectId: string | null }) {
+  const { checked, toggle } = useChecks(projectId);
   if (items.length === 0) return <p className="lead">None recorded.</p>;
   return (
     <>
-      {items.map((a) => (
-        <div className="check" key={a}>
-          <span />
-          {a}
-        </div>
-      ))}
+      {items.map((a) => {
+        const on = checked.includes(a);
+        return (
+          <label className={`check ${on ? 'is-on' : ''}`} key={a}>
+            <input type="checkbox" checked={on} onChange={() => toggle(a)} />
+            <span aria-hidden="true">{on ? '✓' : ''}</span>
+            {a}
+          </label>
+        );
+      })}
     </>
   );
 }
 
-function Versions({ project }: { project: Project }) {
-  const list = project.versions.length ? project.versions : [project.planVersion];
+function Versions({
+  plans,
+  selected,
+  onSelect,
+  locked,
+}: {
+  plans: api.PlanView[];
+  selected: number;
+  onSelect: (v: number) => void;
+  locked: boolean;
+}) {
+  if (plans.length === 0) return <p className="lead">No plan versions yet.</p>;
   return (
     <div className="versions">
-      {list.map((v) => (
-        <span key={v} className={`ver ${v === project.planVersion ? 'active' : ''}`}>
-          <span>v{v}</span>
-        </span>
+      {plans.map((p) => (
+        <button
+          key={p.version}
+          type="button"
+          className={`ver ${p.version === selected ? 'active' : ''}`}
+          onClick={() => onSelect(p.version)}
+          aria-pressed={p.version === selected}
+        >
+          <span>v{p.version}</span>
+        </button>
       ))}
-      <span className="ver-note">
-        <Lock size={11} /> CODING LOCKED UNTIL LEADER DECISION
-      </span>
+      {locked && (
+        <span className="ver-note">
+          <Lock size={11} /> CODING LOCKED UNTIL LEADER DECISION
+        </span>
+      )}
     </div>
   );
 }
 
+/** The plan version on screen — the newest unless the reviewer picked one. */
+function usePlan(view: View) {
+  const [picked, setPicked] = useState<number | null>(null);
+  const latest = view.plans[view.plans.length - 1];
+  const plan = view.plans.find((p) => p.version === picked) ?? latest;
+  useEffect(() => setPicked(null), [view.projectId]);
+  return { plan, picked: plan?.version ?? view.project.planVersion, setPicked };
+}
+
 /* ── Brief ───────────────────────────────────────────────────────────── */
 
-function BriefScreen({ project }: { project: Project }) {
+function BriefScreen({ view }: { view: View }) {
+  const { plan } = usePlan(view);
+  const { project } = view;
+  const scope = plan?.summary ?? project.brief.scope.join(' ');
+  const acceptance = plan?.acceptance ?? project.brief.acceptance;
+  const risks = plan?.risks ?? project.brief.risks;
+
   return (
     <div className="leader-grid">
       <Panel title="Mission Brief">
-        <div className="big-title">{project.brief.title}</div>
-        {project.brief.scope.map((x) => (
-          <p className="lead" key={x}>
-            {x}
-          </p>
-        ))}
+        <div className="big-title">{plan?.title ?? project.brief.title}</div>
+        <p className="lead">{scope}</p>
         <div className="fb-label">Acceptance criteria</div>
-        <Criteria items={project.brief.acceptance} />
+        <Criteria items={acceptance} projectId={view.projectId} />
       </Panel>
-      <Panel title="Risk Assessment">
-        <Risks project={project} />
+      <Panel title="Risk Assessment" count={`${risks.length}`}>
+        <Risks risks={risks} />
       </Panel>
     </div>
   );
@@ -398,25 +545,41 @@ function BriefScreen({ project }: { project: Project }) {
 
 /* ── Plan ────────────────────────────────────────────────────────────── */
 
-function PlanScreen({ project }: { project: Project }) {
+function PlanScreen({ view }: { view: View }) {
+  const { plan, picked, setPicked } = usePlan(view);
+  const locked = view.project.state === 'awaiting_leader_decision';
+
   return (
     <div className="leader-grid">
-      <Panel title="Plan Review">
-        <div className="big-title">{project.brief.title}</div>
-        <p className="lead">{project.brief.scope.join(' ')}</p>
-        {(project.brief.steps ?? []).length > 0 && (
+      <Panel title="Plan Review" count={plan ? `v${plan.version}` : ''}>
+        <div className="big-title">{plan?.title ?? view.project.brief.title}</div>
+        <p className="lead">{plan?.summary ?? view.project.brief.scope.join(' ')}</p>
+
+        {(plan?.steps ?? []).length > 0 && (
           <>
             <div className="fb-label">Plan steps</div>
-            <Criteria items={project.brief.steps ?? []} />
+            <ol className="steps">
+              {plan!.steps.map((t) => (
+                <li key={t}>{t}</li>
+              ))}
+            </ol>
           </>
         )}
+
         <div className="fb-label">Acceptance criteria</div>
-        <Criteria items={project.brief.acceptance} />
+        <Criteria items={plan?.acceptance ?? []} projectId={view.projectId} />
+
         <div className="fb-label">Version</div>
-        <Versions project={project} />
+        <Versions plans={view.plans} selected={picked} onSelect={setPicked} locked={locked} />
+        {view.plans.length > 1 && picked !== view.plans[view.plans.length - 1].version && (
+          <p className="mono-sm" style={{ marginTop: 8 }}>
+            VIEWING AN EARLIER VERSION — v{view.plans[view.plans.length - 1].version} IS CURRENT
+          </p>
+        )}
       </Panel>
-      <Panel title="Risk Assessment">
-        <Risks project={project} />
+
+      <Panel title="Risk Assessment" count={`${(plan?.risks ?? []).length}`}>
+        <Risks risks={plan?.risks ?? []} />
       </Panel>
     </div>
   );
@@ -427,41 +590,45 @@ function PlanScreen({ project }: { project: Project }) {
 const actIcon = { approve: Check, request_updated_plan: MessageSquare, hold: Pause, exit: X };
 
 function LeaderScreen({
-  project,
+  view,
   feedback,
   setFeedback,
   onDecide,
   locked,
   reason,
 }: {
-  project: Project;
+  view: View;
   feedback: string;
   setFeedback: (s: string) => void;
   onDecide: (d: LeaderDecision) => void;
   locked: boolean;
   reason: string;
 }) {
+  const { plan, picked, setPicked } = usePlan(view);
+  const { project } = view;
+
   return (
     <div className="leader-grid">
       <Panel title="Plan Review">
-        <div className="big-title">{project.brief.title}</div>
-        <span className="chip tone-info">PLAN V{project.planVersion}</span>
+        <div className="big-title">{plan?.title ?? project.brief.title}</div>
+        <span className="chip tone-info">PLAN V{plan?.version ?? project.planVersion}</span>
 
         <div className="fb-label">Scope</div>
-        {project.brief.scope.map((x) => (
-          <p className="lead" key={x}>
-            {x}
-          </p>
-        ))}
+        <p className="lead">{plan?.summary ?? project.brief.scope.join(' ')}</p>
 
         <div className="fb-label">Acceptance criteria</div>
-        <Criteria items={project.brief.acceptance} />
+        <Criteria items={plan?.acceptance ?? project.brief.acceptance} projectId={view.projectId} />
 
         <div className="fb-label">Risk assessment</div>
-        <Risks project={project} />
+        <Risks risks={plan?.risks ?? project.brief.risks} />
 
         <div className="fb-label">Version</div>
-        <Versions project={project} />
+        <Versions
+          plans={view.plans}
+          selected={picked}
+          onSelect={setPicked}
+          locked={project.state === 'awaiting_leader_decision'}
+        />
       </Panel>
 
       <Panel title="Leader Actions">

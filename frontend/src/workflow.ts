@@ -142,6 +142,115 @@ export const demoFeed: FeedEvent[] = [
   { at: '10:18:12', type: 'proposal.accepted', tag: 'IDEA', actor: 'Maya', detail: 'Add dark mode accepted into planning', tone: 'go' },
 ];
 
+/**
+ * Demo scenarios. Each becomes a real project on the backend, driven to a
+ * different workflow state, so the queue exercises every branch of the state
+ * machine rather than showing one row in one state.
+ */
+export interface Scenario {
+  key: string;
+  title: string;
+  owner: string;
+  /** Where to stop driving this project. */
+  target: WorkflowState;
+  summary: string;
+  acceptance: string[];
+  risks: Risk[];
+  /** Feedback used when the scenario needs a request-changes round. */
+  feedback?: string;
+  /** Request-changes rounds to run, each producing another plan version. */
+  revisions?: number;
+}
+
+export const scenarios: Scenario[] = [
+  {
+    key: 'dark-mode',
+    title: 'Frontend-only dark mode',
+    owner: 'Maya',
+    target: 'awaiting_leader_decision',
+    revisions: 2,
+    feedback: 'Keep it frontend-only and add a persistence requirement.',
+    summary: 'Implement a dark mode theme using CSS variables and a theme toggle. No backend changes. Persist preference in localStorage.',
+    acceptance: [
+      'Toggle to switch between light and dark modes',
+      'All primary surfaces use dark theme tokens',
+      'Text, icons, and interactive states meet WCAG AA contrast',
+      'Preference persists across sessions',
+      'No visual regressions in key flows',
+    ],
+    risks: [
+      { name: 'Theme regression', level: 'Medium', note: 'Token mapping may miss edge cases' },
+      { name: 'Cross-browser variance', level: 'Low', note: 'Test matrix covers evergreen browsers' },
+      { name: 'Scope creep', level: 'Medium', note: 'Requests to extend beyond frontend-only' },
+      { name: 'Accessibility', level: 'Low', note: 'Contrast checks and focus states included' },
+    ],
+  },
+  {
+    key: 'mobile',
+    title: 'Mobile responsive layout',
+    owner: 'James',
+    target: 'awaiting_plan',
+    summary: 'Make the workspace usable below 768px. Collapse the three-column deck into a stacked layout.',
+    acceptance: ['Deck stacks on small viewports', 'Nav collapses to a menu', 'No horizontal scroll at 375px'],
+    risks: [
+      { name: 'Layout rewrite', level: 'High', note: 'Grid assumes a 1120px minimum today' },
+      { name: 'Touch targets', level: 'Medium', note: 'Hex controls are small on mobile' },
+    ],
+  },
+  {
+    key: 'keyboard',
+    title: 'Keyboard navigation',
+    owner: 'Priya',
+    target: 'idle',
+    summary: 'Full keyboard access for the leader gate and pipeline, so a decision can be made without a mouse.',
+    acceptance: ['All actions reachable by Tab', 'Visible focus ring everywhere', 'Enter and Space activate controls'],
+    risks: [{ name: 'SVG focus order', level: 'Medium', note: 'Pipeline hit targets need explicit tabindex' }],
+  },
+  {
+    key: 'csv',
+    title: 'Export decisions to CSV',
+    owner: 'James',
+    target: 'awaiting_coding',
+    revisions: 1,
+    feedback: 'Scope to CSV only; drop the PDF variant.',
+    summary: 'Let a leader export the decision history for a project as CSV for reporting.',
+    acceptance: ['Export includes every approval', 'Timestamps are ISO-8601', 'File downloads without a backend round trip'],
+    risks: [{ name: 'Large exports', level: 'Low', note: 'Projects rarely exceed a few hundred events' }],
+  },
+  {
+    key: 'audit',
+    title: 'Immutable audit log',
+    owner: 'Sarah',
+    target: 'completed',
+    summary: 'Persist every state transition so the decision trail survives a restart.',
+    acceptance: ['Every transition is recorded', 'Records are append-only', 'History survives redeploy'],
+    risks: [{ name: 'Storage growth', level: 'Low', note: 'Events are small and append-only' }],
+  },
+  {
+    key: 'billing',
+    title: 'Billing data import',
+    owner: 'Maya',
+    target: 'on_hold',
+    summary: 'Import billing data from third-party providers on a nightly schedule.',
+    acceptance: ['Nightly import completes', 'Failures alert the team', 'Partial imports roll back'],
+    risks: [
+      { name: 'Third-party rate limits', level: 'High', note: 'Provider caps at 100 req/min' },
+      { name: 'PII handling', level: 'High', note: 'Billing records contain personal data' },
+    ],
+    feedback: 'Hold until the provider contract is signed.',
+  },
+  {
+    key: 'legacy',
+    title: 'Legacy dashboard migration',
+    owner: 'Priya',
+    target: 'exited',
+    summary: 'Port the legacy dashboard onto the new workspace shell.',
+    acceptance: ['Feature parity with the legacy view', 'No regression in load time'],
+    risks: [{ name: 'Unknown dependencies', level: 'High', note: 'Legacy code is undocumented' }],
+    feedback: 'Superseded by the new workspace. Closing.',
+  },
+];
+
 export function phaseIndex(state: WorkflowState): number {
   return pipeline.findIndex((p) => p.id === state);
 }
