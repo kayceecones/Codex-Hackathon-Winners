@@ -9,7 +9,8 @@
   <img src="https://img.shields.io/badge/OpenAI-Responses_API-412991?style=for-the-badge&logo=openai&logoColor=white" />
   <img src="https://img.shields.io/badge/Runloop-Devboxes_%2B_Snapshots-6C4EF5?style=for-the-badge" />
   <img src="https://img.shields.io/badge/Fastify-Master_API-000000?style=for-the-badge&logo=fastify&logoColor=white" />
-  <img src="https://img.shields.io/badge/vitest-15_passing-6E9F18?style=for-the-badge&logo=vitest&logoColor=white" />
+  <img src="https://img.shields.io/badge/Prisma-Persistence-2D3748?style=for-the-badge&logo=prisma&logoColor=white" />
+  <img src="https://img.shields.io/badge/vitest-18_passing-6E9F18?style=for-the-badge&logo=vitest&logoColor=white" />
   <img src="https://img.shields.io/badge/Notion-Shared_Memory-000000?style=for-the-badge&logo=notion&logoColor=white" />
 </p>
 
@@ -181,6 +182,12 @@ Event-driven from the start: `person3.idea_submitted` produces a structured prop
 ### Master Agent + Workflow State Machine
 The control plane. Eight workflow states (`idle`, `awaiting_plan`, `awaiting_leader_decision`, `on_hold`, `awaiting_coding`, `awaiting_review`, `completed`, `exited`) and one canonical event stream, so every specialist agent posts its result to `POST /api/events` and the Master alone decides what happens next. No agent calls another directly.
 
+### Real Dispatch to Execution
+An approved plan doesn't just become a recorded intention. `CodingReviewAgentGateway` POSTs the execution contract to the Coding + Review service, deliberately fire-and-forget: a real run boots a devbox and drives an LLM loop for minutes, and the service reports back through `/api/events` on its own. An unreachable coding service is logged and never thrown - the dispatch runs detached from the request that triggered it, so a raised error would take the Master down with it.
+
+### Persistence + Notion Sync
+Workflow state lives in a Prisma-backed `DbStore` behind the same `Store` interface the in-memory implementation uses, so tests stay fast and isolated while the running system persists. `notionSync` mirrors the human-readable trail into Notion, and runs as a no-op when no Notion credentials are configured rather than failing the workflow.
+
 ### Coding Agent + Runloop Execution
 A manual tool-calling loop against the OpenAI Responses API, with four tools exposed to the model: `read_file`, `write_file`, `run_command`, and `done`. Each call is executed against a real Runloop devbox (`@runloop/api-client`) - never against a mock. A fixed iteration cap means a run that can't converge fails cleanly instead of hanging the workflow.
 
@@ -236,8 +243,13 @@ Weave/
 │   ├── integrations/
 │   │   ├── codingReviewContract.ts   # approved plan -> execution contract
 │   │   └── person3Adapter.ts         # Planning events -> canonical Master events
-│   ├── routes/                      # /api/projects, /api/events, /api/contracts
-│   └── adapters/                    # pluggable store + agent gateway
+│   ├── adapters/
+│   │   ├── store/                    # DbStore (Prisma) + InMemoryStore
+│   │   └── agents/                   # CodingReviewAgentGateway - real dispatch
+│   ├── notion/notionSync.ts         # human-readable history mirror
+│   └── routes/                      # /api/projects, /api/events, /api/contracts
+│
+├── prisma/                         # schema + migrations
 │
 ├── coding-review-agent/            # Coding Agent + Runloop execution + Review Agent
 │   ├── src/
@@ -289,9 +301,13 @@ npm run milestone0
 
 ```bash
 npm install
-npm test          # vitest - 15 tests
+npm test          # vitest - 18 tests
 npm run dev       # Master API on :3001
 ```
+
+To dispatch approved plans to the real coding service rather than waiting for a
+`coding.completed` event, set `CODING_REVIEW_URL=http://127.0.0.1:4005` and run
+both.
 
 ### Brainstorm + Planning Agents
 
@@ -432,4 +448,20 @@ Every agent reports through these, and only these:
 | Frontend / UX | Shared workspace, planning queue, leader decision panel |
 | Coding + Runloop + Review | Execution, sandboxed coding agent, live previews, snapshots, review classification |
 
-<sub>TypeScript · Fastify · React · OpenAI · Runloop · Notion</sub>
+## Build Status
+
+Every component and every seam between them is in place - the state machine and
+its event routing, brainstorm and planning, coding and review, database
+persistence with Notion sync, the workspace UI, and real dispatch from an
+approved plan into execution. 18 tests pass, and the integrated demo drives the
+full path: idea → proposal → Plan v2 → leader feedback → Plan v3 → approval →
+coding → review issue → fix → pass.
+
+One thing is written but unproven: **no Runloop call has yet run against a real
+API key.** Devbox creation, preview tunnels, and snapshots are implemented and
+reachable - dispatch is confirmed end to end, with Runloop returning a genuine
+authentication error for a placeholder key - but none of it has executed
+successfully. `npm run milestone0` settles that in one command once a key
+exists, checking every step and cleaning up after itself either way.
+
+<sub>TypeScript · Fastify · Prisma · React · OpenAI · Runloop · Notion</sub>

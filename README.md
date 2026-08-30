@@ -12,9 +12,10 @@ Most AI work still happens in private chats. Teams lose context, decisions are s
 - Builds versioned implementation plans with feedback loops.
 - Gives a human leader explicit control to approve, request changes, hold, resume, or exit.
 - Routes approved work to coding and review agents.
-- Loops back when review finds implementation or planning issues.
+- Executes approved plans inside an isolated Runloop devbox, serves the result over a public tunnel so the whole team can open one live URL, and commits it as a named snapshot that later runs can build on.
+- Loops back when review finds implementation or planning issues, routing each to the agent that owns it.
 - Exposes a frontend-ready API for live status, timeline, plans, approvals, and next actions.
-- Keeps persistence replaceable so the in-memory workflow can move to a real database and Notion history.
+- Persists workflow state to a database with Notion sync for human-readable project history.
 
 ## Integrated Workflow
 
@@ -34,11 +35,18 @@ Idea
 ```text
 /
   src/                    Master orchestration backend and shared contracts
-  tests/                  Backend and integration-adapter tests
+    master/               Workflow state machine and event routing
+    contracts/            Canonical workflow, event, and agent types
+    adapters/store/       DbStore (Prisma) and InMemoryStore
+    adapters/agents/      Dispatch to the coding/review service
+    notion/               Notion sync for human-readable history
+  prisma/                 Database schema and migrations
+  tests/                  Backend, gateway, and integration-adapter tests
   scripts/                End-to-end integrated workflow script
   docs/                   Setup, API, frontend, and persistence handoff docs
   ResearchAndCoding/      Brainstorm and planning agent package
   coding-review-agent/    Coding, Runloop, and review service package
+  frontend/               Shared workspace UI
 ```
 
 ## Run Locally
@@ -67,6 +75,27 @@ curl.exe http://127.0.0.1:3001/health
 curl.exe http://127.0.0.1:3001/api/contracts
 ```
 
+### Running real execution
+
+By default the Master records an approved plan's `invoke_coding` action but does
+not call anything, so execution advances only when a `coding.completed` event
+arrives. To dispatch approved plans to the real coding service, start it and
+point the Master at it:
+
+```powershell
+npm.cmd run dev:person5          # coding + review service on :4005
+$env:CODING_REVIEW_URL = "http://127.0.0.1:4005"
+npm.cmd run dev:master
+```
+
+The coding service needs `RUNLOOP_API_KEY` and `OPENAI_API_KEY` in
+`coding-review-agent/.env`. Verify the whole Runloop path - devbox, file I/O,
+tunnel, snapshot, and booting back from that snapshot - in one command:
+
+```powershell
+npm.cmd --prefix coding-review-agent run milestone0
+```
+
 ## API Highlights
 
 - `POST /api/projects` creates a project and returns the project id.
@@ -85,4 +114,16 @@ curl.exe http://127.0.0.1:3001/api/contracts
 
 ## Current Build Status
 
-The current integrated build includes the orchestration backend, brainstorm/planning package, coding/review service, shared contracts, API docs, frontend endpoint guide, and persistence adapter guide. The local workflow check exercises a complete path from idea to revised plan, approval, coding, review issue, fix, and final pass.
+Every component and every seam between them is in place: the orchestration
+backend and its state machine, the brainstorm/planning package, the
+coding/review service, database persistence with Notion sync, the shared
+workspace UI, and real dispatch from an approved plan to the coding service.
+The local workflow check exercises a complete path from idea to revised plan,
+approval, coding, review issue, fix, and final pass.
+
+One thing is written but unproven: **no Runloop call has yet run against a real
+API key.** Devbox creation, preview tunnels, and snapshots are implemented and
+reachable - dispatch has been confirmed end to end, with Runloop returning a
+genuine authentication error for a placeholder key - but none of it has
+executed successfully. `milestone0` (above) settles that in one command once a
+key is available.
