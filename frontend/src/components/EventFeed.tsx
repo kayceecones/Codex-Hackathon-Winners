@@ -1,8 +1,8 @@
-import { feed } from '../workflow';
+import type { FeedEvent } from '../workflow';
 
 const glyph: Record<string, string> = { go: '✓', warn: '!', hold: '‖', stop: '✕', info: '◈' };
 
-export default function EventFeed() {
+export default function EventFeed({ feed }: { feed: FeedEvent[] }) {
   return (
     <section className="feed">
       <div className="sec-head">

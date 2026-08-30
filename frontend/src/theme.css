@@ -493,3 +493,7 @@ textarea.fb:focus { outline: none; border-color: var(--cyan); box-shadow: 0 0 18
 @media (prefers-reduced-motion: reduce) {
   .live-chip i, .trk-ring { animation: none; }
 }
+
+/* Demo mode: the live chip goes amber when data is not from the server. */
+.live-chip.is-demo { color: var(--amber); }
+.live-chip.is-demo i { background: var(--amber); box-shadow: 0 0 9px var(--amber); }

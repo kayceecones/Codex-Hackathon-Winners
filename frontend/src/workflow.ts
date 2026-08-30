@@ -58,7 +58,7 @@ export const decisions: DecisionSpec[] = [
   { id: 'exit', label: 'EXIT', detail: 'Close with reason', tone: 'stop' },
 ];
 
-export interface Risk { name: string; level: 'Low' | 'Medium' | 'High'; note: string }
+export interface Risk { name: string; level?: 'Low' | 'Medium' | 'High'; note?: string }
 export interface FeedEvent { at: string; type: string; tag: string; actor: string; detail: string; tone: 'go' | 'warn' | 'hold' | 'stop' | 'info' }
 export interface Agent { key: string; name: string; task: string; status: string; tone: 'go' | 'warn' | 'hold' | 'stop' | 'info' }
 
@@ -67,6 +67,7 @@ export interface Brief {
   scope: string[];
   acceptance: string[];
   risks: Risk[];
+  steps?: string[];
 }
 
 export interface Project {
@@ -80,7 +81,7 @@ export interface Project {
   brief: Brief;
 }
 
-export const project: Project = {
+export const demoProject: Project = {
   name: 'Weave',
   tagline: 'MULTIPLAYER AI WORKSPACE',
   repo: 'kayceecones/Codex-Hackathon-Winners',
@@ -101,6 +102,12 @@ export const project: Project = {
       'Preference persists across sessions',
       'No visual regressions in key flows',
     ],
+    steps: [
+      'Add theme state and persistence',
+      'Build light/dark design tokens',
+      'Add theme toggle to the workspace',
+      'Validate contrast and responsive behaviour',
+    ],
     risks: [
       { name: 'THEME REGRESSION', level: 'Medium', note: 'Token mapping may miss edge cases' },
       { name: 'CROSS-BROWSER VARIANCE', level: 'Low', note: 'Test matrix covers modern evergreen browsers' },
@@ -112,13 +119,13 @@ export const project: Project = {
 
 export interface Mission { title: string; owner: string; status: string; tone: 'go' | 'warn' | 'hold' | 'info' }
 
-export const missions: Mission[] = [
+export const demoMissions: Mission[] = [
   { title: 'Add dark mode', owner: 'Maya', status: 'PLANNING', tone: 'info' },
   { title: 'Mobile layout', owner: 'James', status: 'NEW', tone: 'warn' },
   { title: 'Keyboard nav', owner: 'Priya', status: 'QUEUED', tone: 'go' },
 ];
 
-export const agents: Agent[] = [
+export const demoAgents: Agent[] = [
   { key: 'B', name: 'BRAINSTORM', task: 'Proposal ready', status: 'IDLE', tone: 'info' },
   { key: 'P', name: 'PLANNING', task: 'Updating plan v3', status: 'ACTIVE', tone: 'go' },
   { key: 'M', name: 'MASTER', task: 'Routing events', status: 'LIVE', tone: 'info' },
@@ -127,7 +134,7 @@ export const agents: Agent[] = [
   { key: 'M', name: 'MEMORY', task: 'Synced with Notion', status: 'SYNCED', tone: 'go' },
 ];
 
-export const feed: FeedEvent[] = [
+export const demoFeed: FeedEvent[] = [
   { at: '10:24:31', type: 'awaiting_leader_decision', tag: 'LEADER', actor: 'System', detail: 'Coding locked until a decision is recorded', tone: 'warn' },
   { at: '10:22:17', type: 'plan.submitted', tag: 'PLAN', actor: 'Planning Agent', detail: 'Frontend-only dark mode — v3', tone: 'info' },
   { at: '10:21:04', type: 'validation.complete', tag: 'GUARDRAIL', actor: 'Guardrail Check', detail: 'No policy violations detected', tone: 'go' },
