@@ -448,20 +448,5 @@ Every agent reports through these, and only these:
 | Frontend / UX | Shared workspace, planning queue, leader decision panel |
 | Coding + Runloop + Review | Execution, sandboxed coding agent, live previews, snapshots, review classification |
 
-## Build Status
-
-Every component and every seam between them is in place - the state machine and
-its event routing, brainstorm and planning, coding and review, database
-persistence with Notion sync, the workspace UI, and real dispatch from an
-approved plan into execution. 18 tests pass, and the integrated demo drives the
-full path: idea → proposal → Plan v2 → leader feedback → Plan v3 → approval →
-coding → review issue → fix → pass.
-
-One thing is written but unproven: **no Runloop call has yet run against a real
-API key.** Devbox creation, preview tunnels, and snapshots are implemented and
-reachable - dispatch is confirmed end to end, with Runloop returning a genuine
-authentication error for a placeholder key - but none of it has executed
-successfully. `npm run milestone0` settles that in one command once a key
-exists, checking every step and cleaning up after itself either way.
 
 <sub>TypeScript · Fastify · Prisma · React · OpenAI · Runloop · Notion</sub>
