@@ -1,115 +1,478 @@
-import { useMemo, useState } from 'react';
-import { Activity, Bot, Check, ChevronRight, CircleDot, Clock3, FileCode2, History, Map as MapIcon, Plus, Send, Users, X, Zap } from 'lucide-react';
-import { api } from './services/api';
-import MissionMap from './components/MissionMap';
-import { mission, route, routeIndex } from './mission';
+import { useState } from 'react';
+import { Check, ChevronRight, Lock, MessageSquare, Pause, Target, X } from 'lucide-react';
+import ObjectiveTracker from './components/ObjectiveTracker';
+import EventFeed from './components/EventFeed';
+import Panel from './components/Panel';
+import {
+  agents,
+  decisions,
+  missions,
+  offPipeline,
+  phaseIndex,
+  phaseStatus,
+  pipeline,
+  project,
+  type LeaderDecision,
+  type Phase,
+  type WorkflowState,
+} from './workflow';
 
-type Request = { name: string; initials: string; text: string };
-type Screen = 'overview' | 'map' | 'plan' | 'execution' | 'coding' | 'results';
-
-const seedRequests: Request[] = [
-  { name: 'Maya', initials: 'M', text: 'Add dark mode' },
-  { name: 'James', initials: 'J', text: 'Make the dashboard mobile responsive' },
-];
-
-const plan = {
-  version: 5,
-  summary: 'Frontend-only dark mode with persisted preference, without backend changes.',
-  tasks: ['Add theme state and persistence', 'Build light/dark design tokens', 'Add theme toggle to workspace', 'Validate contrast and responsive behavior'],
-  incorporated: ['Keep dark mode scoped to the frontend', 'Persist the user preference', 'No backend changes'],
-  affectedAreas: ['frontend/src/App.tsx', 'frontend/src/styles.css', 'frontend/src/services/api.ts'],
-  validation: ['Theme survives refresh', 'Primary workflow remains usable in both themes', 'No backend files changed'],
-};
-
-const decisions = [
-  ['Plan v3', 'Leader requested frontend-only scope', '2:41 PM'],
-  ['Plan v4', 'Planning Agent incorporated persistence', '2:44 PM'],
-  ['Plan v5', 'Leader approved scope for execution review', '2:47 PM'],
-];
+const tabs = ['OVERVIEW', 'BRIEF', 'PLAN', 'LEADER', 'EXECUTION', 'AUDIT'] as const;
+type Tab = (typeof tabs)[number];
 
 export default function App() {
-  const [requests, setRequests] = useState(seedRequests);
-  const [draft, setDraft] = useState('');
-  const [screen, setScreen] = useState<Screen>('overview');
-  const [workflow, setWorkflow] = useState<'PLAN_APPROVAL' | 'EXECUTION_REVIEW' | 'CODING' | 'COMPLETE'>('PLAN_APPROVAL');
+  const [tab, setTab] = useState<Tab>('OVERVIEW');
+  const [state, setState] = useState<WorkflowState>(project.state);
+  const [held, setHeld] = useState<WorkflowState | null>(null);
+  const [version, setVersion] = useState(project.planVersion);
   const [feedback, setFeedback] = useState('');
-  const [message, setMessage] = useState('');
+  const [picked, setPicked] = useState<Phase['id'] | null>(null);
+  const [note, setNote] = useState('');
 
-  function submit() {
-    const text = draft.trim();
-    if (!text) return;
-    setRequests((items) => [...items, { name: 'You', initials: 'Y', text }]);
-    setDraft('');
-    setMessage('Request added to the shared planning queue.');
-  }
-
-  async function approvePlan() {
-    await api.approvePlan();
-    setWorkflow('EXECUTION_REVIEW'); setScreen('execution'); setMessage('Plan v5 approved. Ready for execution review.');
-  }
-  async function sendBack() {
-    await api.sendBack(feedback || 'Please revise the plan.');
-    setWorkflow('PLAN_APPROVAL'); setScreen('plan'); setMessage('Feedback sent directly to Planning Agent for a new plan version.');
+  // Mirrors the backend state machine's leader-decision transitions.
+  function decide(id: LeaderDecision) {
+    if (id === 'approve') {
+      setState('awaiting_coding');
+      setNote('Plan approved. Execution contract created — Coding Agent released.');
+      setTab('EXECUTION');
+    } else if (id === 'request_updated_plan') {
+      setState('awaiting_plan');
+      setVersion((v) => v + 1);
+      setNote(`Feedback sent to Planning. Drafting v${version + 1}.`);
+      setTab('PLAN');
+    } else if (id === 'hold') {
+      setHeld(state);
+      setState('on_hold');
+      setNote('Mission held. State preserved for resume.');
+    } else {
+      setState('exited');
+      setNote('Mission closed.');
+    }
     setFeedback('');
   }
-  async function approveExecution() {
-    await api.approveExecution();
-    setWorkflow('CODING'); setScreen('coding'); setMessage('Execution approved. Coding Agent started.');
+
+  function resume() {
+    setState(held ?? 'awaiting_leader_decision');
+    setHeld(null);
+    setNote('Mission resumed from hold.');
   }
-  function finish() { setWorkflow('COMPLETE'); setScreen('results'); setMessage('Execution completed and Review Agent passed validation.'); }
+
+  const off = state === 'on_hold' || state === 'exited';
 
   return (
-    <div className="app-shell">
-      <aside className="sidebar">
-        <div className="brand"><span className="brand-mark"><Zap size={15} fill="currentColor" /></span><span>Weave</span></div>
-        <div className="project-label">PROJECT</div><div className="project-name">Weave — Agentic Development Workspace</div>
-        <nav>
-          <a className={screen === 'overview' ? 'active' : ''} onClick={() => setScreen('overview')}><Activity size={16} /> Overview</a>
-          <a className={screen === 'map' ? 'active' : ''} onClick={() => setScreen('map')}><MapIcon size={16} /> Mission Map <span className="version">{route[routeIndex(mission.currentState)]?.code ?? '--'}</span></a>
-          <a><CircleDot size={16} /> Planning Queue <span className="count">{requests.length}</span></a>
-          <a className={screen === 'plan' ? 'active' : ''} onClick={() => setScreen('plan')}><Bot size={16} /> Plan Review <span className="version">v5</span></a>
-          <a className={screen === 'execution' ? 'active' : ''} onClick={() => setScreen('execution')}><Check size={16} /> Execution Review</a>
-          <a className={screen === 'coding' ? 'active' : ''} onClick={() => setScreen('coding')}><FileCode2 size={16} /> Coding Progress</a>
-          <a className={screen === 'results' ? 'active' : ''} onClick={() => setScreen('results')}><History size={16} /> Decision History</a>
+    <div className="shell">
+      <header className="topbar">
+        <div className="brand">
+          <span className="brand-mark">W</span>
+          <div>
+            WEAVE
+            <small>{project.tagline}</small>
+          </div>
+        </div>
+
+        <nav className="tabs">
+          {tabs.map((t) => (
+            <button key={t} className={tab === t ? 'active' : ''} onClick={() => setTab(t)}>
+              <span>{t}</span>
+            </button>
+          ))}
         </nav>
-        <div className="sidebar-team"><div className="project-label">TEAM</div><div className="team-row"><span className="avatar maya">M</span> Maya <span className="role">Product</span></div><div className="team-row"><span className="avatar james">J</span> James <span className="role">Engineering</span></div><div className="team-row"><span className="avatar sarah">S</span> Sarah <span className="role">Lead</span></div></div>
-        <div className="sidebar-footer"><Users size={15} /> 3 teammates online</div>
-      </aside>
 
-      <main className="main">
-        <header className="topbar"><div><div className="eyebrow">TEAM WORKSPACE</div><h1>Weave</h1></div><div className="top-actions"><div className="agents-online"><span className="live-dot" /> 3 agents active</div><button className="primary" onClick={() => document.getElementById('composer')?.focus()}><Plus size={16} /> Propose Change</button></div></header>
+        <div className="topbar-right">
+          <span className="live-chip">
+            <i /> LIVE
+          </span>
+          <span className="chip tone-info">PLAN V{version}</span>
+          <div className="role-badge">
+            <Target size={17} color="#a855f7" />
+            <div>
+              <strong>{project.leader.toUpperCase()}</strong>
+              <span>TEAM LEADER</span>
+            </div>
+          </div>
+        </div>
+      </header>
 
-        {message && <div className="toast">{message}<button onClick={() => setMessage('')}><X size={13}/></button></div>}
+      <main className="stage">
+        {note && (
+          <div className="toast">
+            {note}
+            <button onClick={() => setNote('')} aria-label="Dismiss">
+              <X size={14} />
+            </button>
+          </div>
+        )}
 
-        {screen === 'overview' && <Overview requests={requests} onPlan={() => setScreen('plan')} onMap={() => setScreen('map')} />}
-        {screen === 'map' && <MissionMap />}
-        {screen === 'plan' && <PlanReview feedback={feedback} setFeedback={setFeedback} onApprove={approvePlan} onSendBack={sendBack} />}
-        {screen === 'execution' && <ExecutionReview onApprove={approveExecution} onSendBack={() => { setScreen('plan'); setWorkflow('PLAN_APPROVAL'); }} />}
-        {screen === 'coding' && <CodingProgress onFinish={finish} />}
-        {screen === 'results' && <Results />}
+        {off && (
+          <div className="toast" style={{ borderColor: 'rgba(245,158,11,.4)', background: 'rgba(245,158,11,.08)' }}>
+            <strong>{offPipeline[state as 'on_hold' | 'exited'].label}</strong>
+            {offPipeline[state as 'on_hold' | 'exited'].blurb}
+            {state === 'on_hold' && (
+              <button className="btn" style={{ marginLeft: 'auto' }} onClick={resume}>
+                Resume
+              </button>
+            )}
+          </div>
+        )}
 
-        <div className="composer-wrap"><div className="composer"><div className="composer-icon"><Plus size={17} /></div><input id="composer" value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={e => e.key === 'Enter' && submit()} placeholder="Suggest an idea or change for the team…" /><button className="send" onClick={submit} aria-label="Send"><Send size={16} /></button></div><div className="composer-hint">Ideas are added to the shared planning queue</div></div>
+        {tab === 'OVERVIEW' && <Overview state={state} picked={picked} setPicked={setPicked} />}
+        {tab === 'BRIEF' && <BriefScreen />}
+        {tab === 'PLAN' && <PlanScreen version={version} setVersion={setVersion} />}
+        {tab === 'LEADER' && (
+          <LeaderScreen
+            version={version}
+            setVersion={setVersion}
+            feedback={feedback}
+            setFeedback={setFeedback}
+            onDecide={decide}
+            locked={off}
+          />
+        )}
+        {tab === 'EXECUTION' && <ExecutionScreen state={state} />}
+        {tab === 'AUDIT' && <AuditScreen />}
+
+        <EventFeed />
       </main>
+
+      <footer className="statusbar">
+        <span>
+          LEADER <b>@{project.leader.toLowerCase()}</b>
+        </span>
+        <span>
+          STATE <b>{state}</b>
+        </span>
+        <span>
+          REPO <b>{project.repo}</b>
+        </span>
+        <span className="right">
+          <span>
+            PLAN <b>v{version}</b>
+          </span>
+          <span>
+            SECURE <b>TLS 1.3</b>
+          </span>
+        </span>
+      </footer>
     </div>
   );
 }
 
-function Overview({ requests, onPlan, onMap }: { requests: Request[]; onPlan: () => void; onMap: () => void }) {
-  const activity = ['Maya proposed “Add dark mode”', 'Planning Agent synthesized the request', 'Research Agent analyzed frontend impact', 'Planning Agent updated the project plan to v5'];
-  return <><div className="overview-map"><MissionMap compact onOpen={onMap} /></div><section className="workspace-grid"><div className="column"><SectionHeader title="Planning Queue" subtitle={`${requests.length} requests`} /><div className="request-list">{requests.map((r, i) => <div className="request-card" key={i}><div className={`avatar ${r.initials === 'M' ? 'maya' : r.initials === 'J' ? 'james' : 'you'}`}>{r.initials}</div><div className="request-content"><div className="request-meta"><strong>{r.name}</strong><span>just now</span></div><div className="request-text">{r.text}</div><span className="status new">New request</span></div></div>)}</div></div><div className="column activity-column"><SectionHeader title="Live Activity" subtitle="What’s happening now" /><div className="activity-feed">{activity.map((x, i) => <div className="activity-item" key={i}><div className="activity-icon">{i > 0 ? <Bot size={15}/> : 'M'}</div><div><div className="activity-text">{x}</div><div className="activity-time">{i === 3 ? 'just now' : '2 min ago'}</div></div></div>)}</div><div className="agents-card"><div className="card-title">Agents</div><Agent name="Planning Agent" task="Plan v5 ready for approval" active/><Agent name="Research Agent" task="Impact analysis complete" active/><Agent name="Coding Agent" task="Waiting for approval"/></div></div><div className="column state-column"><SectionHeader title="Project State" subtitle="Current workflow"/><div className="state-card">{['Requests','Planning','Research','Plan Review','Execution','Coding','Complete'].map((s,i)=><div className={`workflow-step ${i<3?'done':''} ${i===3?'current':''}`} key={s}><div className="step-marker">{i<3?<Check size={12}/>:i===3?<CircleDot size={11}/>:''}</div><span>{s}</span>{i===3&&<span className="now">NOW</span>}</div>)}</div><div className="plan-card"><div className="plan-top"><span>Current Plan</span><span className="version">v5</span></div><div className="plan-title">Frontend dark mode</div><p>2 requests incorporated • persistence included</p><button className="plan-link" onClick={onPlan}>Review proposed plan <ChevronRight size={14}/></button></div></div></section></>;
+/* ── Overview / command deck ─────────────────────────────────────────── */
+
+function Overview({
+  state,
+  picked,
+  setPicked,
+}: {
+  state: WorkflowState;
+  picked: Phase['id'] | null;
+  setPicked: (p: Phase['id']) => void;
+}) {
+  const here = phaseIndex(state);
+  const focus = pipeline.find((p) => p.id === (picked ?? state)) ?? pipeline[0];
+  const pct = here < 0 ? 0 : Math.round((here / (pipeline.length - 1)) * 100);
+
+  return (
+    <div className="deck-grid">
+      <Panel title="Mission Queue" count={`${missions.length}`}>
+        {missions.map((m) => (
+          <div className="mission" key={m.title}>
+            <div className="mission-hex">{m.title[0]}</div>
+            <div>
+              <h4>{m.title}</h4>
+              <div className="owner">{m.owner}</div>
+              <span className={`chip tone-${m.tone}`}>
+                <i />
+                {m.status}
+              </span>
+            </div>
+          </div>
+        ))}
+      </Panel>
+
+      <Panel title="Objective Tracker" count={`${pct}%`}>
+        <ObjectiveTracker state={state} onPick={setPicked} picked={picked} />
+        <div style={{ marginTop: 6 }}>
+          <div className="kv">
+            <span className="k">Stage</span>
+            <span className="v">{focus.label}</span>
+          </div>
+          <div className="kv">
+            <span className="k">Owner</span>
+            <span className="v">{focus.crew}</span>
+          </div>
+          <div className="kv">
+            <span className="k">Reached</span>
+            <span className="v">{focus.at ?? '—'}</span>
+          </div>
+          <p className="lead" style={{ marginTop: 12 }}>
+            {focus.blurb}
+          </p>
+        </div>
+      </Panel>
+
+      <Panel title="Current Objective" tone="accent">
+        <div className="big-title">{project.brief.title}</div>
+        <div className="kv">
+          <span className="k">Owner</span>
+          <span className="v">{project.leader}</span>
+        </div>
+        <div className="kv">
+          <span className="k">Status</span>
+          <span className="v">{state}</span>
+        </div>
+
+        <div className="fb-label">Acceptance checklist</div>
+        {project.brief.acceptance.slice(0, 4).map((a) => (
+          <div className="check" key={a}>
+            <span />
+            {a}
+          </div>
+        ))}
+      </Panel>
+    </div>
+  );
 }
 
-function PlanReview({ feedback, setFeedback, onApprove, onSendBack }: { feedback: string; setFeedback: (s:string)=>void; onApprove:()=>void; onSendBack:()=>void }) {
-  return <section className="review-workspace"><div className="review-header"><div><div className="eyebrow">HUMAN-IN-THE-LOOP</div><h2>Plan Review</h2><p>Review the Planning Agent’s latest version before anything is executed.</p></div><span className="big-version">PLAN v{plan.version}</span></div><div className="review-grid"><div><Panel title="Plan summary"><p className="lead">{plan.summary}</p><ul>{plan.tasks.map(t=><li key={t}>{t}</li>)}</ul></Panel><Panel title="Requests incorporated"><ul>{plan.incorporated.map(x=><li key={x}>{x}</li>)}</ul></Panel><Panel title="Approval history">{decisions.map(d=><div className="decision" key={d[0]}><span className="decision-check"><Check size={12}/></span><div><strong>{d[0]}</strong><p>{d[1]}</p><small>{d[2]}</small></div></div>)}</Panel></div><div><Panel title="Leader decision"><div className="decision-state"><CircleDot size={17}/> Awaiting approval</div><textarea value={feedback} onChange={e=>setFeedback(e.target.value)} placeholder="Optional feedback for Planning Agent…"/><div className="decision-actions"><button className="secondary" onClick={onSendBack}><Send size={14}/> Send Back</button><button className="primary large" onClick={onApprove}><Check size={15}/> Approve Plan</button></div><p className="helper">Send Back routes your feedback directly to Planning and creates the next plan version. Approving unlocks execution review.</p></Panel></div></div></section>;
+/* ── Brief ───────────────────────────────────────────────────────────── */
+
+function BriefScreen() {
+  const { brief } = project;
+  return (
+    <div className="leader-grid">
+      <Panel title="Mission Brief">
+        <div className="big-title">{brief.title}</div>
+        {brief.scope.map((s) => (
+          <p className="lead" key={s}>
+            {s}
+          </p>
+        ))}
+        <div className="fb-label">Acceptance criteria</div>
+        {brief.acceptance.map((a) => (
+          <div className="check" key={a}>
+            <span />
+            {a}
+          </div>
+        ))}
+      </Panel>
+
+      <Panel title="Risk Assessment">
+        {brief.risks.map((r) => (
+          <div className="risk" key={r.name}>
+            <span className="rn">{r.name}</span>
+            <span className={`rv lvl-${r.level}`}>{r.level}</span>
+            <span className="rd">{r.note}</span>
+          </div>
+        ))}
+      </Panel>
+    </div>
+  );
 }
 
-function ExecutionReview({ onApprove, onSendBack }: {onApprove:()=>void; onSendBack:()=>void}) { return <section className="review-workspace"><div className="review-header"><div><div className="eyebrow">GOVERNANCE GATE</div><h2>Execution Review</h2><p>The approved plan becomes the execution contract for Coding Agent.</p></div><span className="big-version">APPROVED v5</span></div><div className="review-grid"><div><Panel title="Implementation tasks"><ul>{plan.tasks.map(t=><li key={t}>{t}</li>)}</ul></Panel><Panel title="Affected areas"><ul>{plan.affectedAreas.map(x=><li key={x}><code>{x}</code></li>)}</ul></Panel><Panel title="Validation requirements"><ul>{plan.validation.map(x=><li key={x}>{x}</li>)}</ul></Panel></div><div><Panel title="Ready to execute"><div className="ready-card"><Check size={18}/><div><strong>Plan approved</strong><p>No coding has started yet.</p></div></div><button className="primary execute" onClick={onApprove}><Zap size={15}/> Approve &amp; Execute</button><button className="secondary full" onClick={onSendBack}><Send size={14}/> Send back to Plan Review</button></Panel></div></div></section>; }
+/* ── Plan ────────────────────────────────────────────────────────────── */
 
-function CodingProgress({ onFinish }: {onFinish:()=>void}) { const [progress,setProgress]=useState(42); useMemo(()=>{ if(progress===42) setTimeout(()=>setProgress(78),700); },[]); return <section className="review-workspace"><div className="review-header"><div><div className="eyebrow">EXECUTION</div><h2>Coding Progress</h2><p>Coding Agent is executing the approved contract through Runloop.</p></div><span className="big-version live">RUNNING</span></div><Panel title="Execution timeline"><div className="execution-line"><ExecStep title="Execution contract created" done/><ExecStep title="Repository inspected" done/><ExecStep title="Theme implementation" active/><ExecStep title="Tests and validation"/><ExecStep title="Review Agent"/></div><div className="progress"><span style={{width:`${progress}%`}}/></div><div className="terminal"><div>$ runloop inspect frontend</div><div>✓ repository context loaded</div><div>$ runloop test</div><div>→ running frontend validation…</div></div></Panel><button className="primary large finish" onClick={onFinish}><Check size={15}/> Simulate Completed Run</button></section>; }
+function PlanScreen({ version, setVersion }: { version: number; setVersion: (v: number) => void }) {
+  return (
+    <div className="leader-grid">
+      <Panel title="Plan Review">
+        <div className="big-title">{project.brief.title}</div>
+        <p className="lead">{project.brief.scope.join(' ')}</p>
+        <div className="fb-label">Acceptance criteria</div>
+        {project.brief.acceptance.map((a) => (
+          <div className="check" key={a}>
+            <span />
+            {a}
+          </div>
+        ))}
+        <div className="fb-label">Version</div>
+        <div className="versions">
+          {[...new Set([...project.versions, version])].sort((a, b) => a - b).map((v) => (
+            <button key={v} className={`ver ${v === version ? 'active' : ''}`} onClick={() => setVersion(v)}>
+              <span>v{v}</span>
+            </button>
+          ))}
+          <span className="ver-note">
+            <Lock size={11} /> CODING LOCKED UNTIL LEADER DECISION
+          </span>
+        </div>
+      </Panel>
 
-function Results() { return <section className="review-workspace"><div className="review-header"><div><div className="eyebrow">COMPLETE</div><h2>Results &amp; Decision History</h2><p>Implementation passed validation and is associated with Plan v5.</p></div><span className="big-version success"><Check size={14}/> PASSED</span></div><div className="review-grid"><div><Panel title="Completion summary"><div className="ready-card"><Check size={18}/><div><strong>Dark mode shipped</strong><p>Frontend implementation completed successfully.</p></div></div></Panel><Panel title="Files / areas changed"><ul>{plan.affectedAreas.map(x=><li key={x}><code>{x}</code></li>)}</ul></Panel><Panel title="Test results"><div className="test-row"><Check size={14}/> Theme persistence — passed</div><div className="test-row"><Check size={14}/> Contrast validation — passed</div><div className="test-row"><Check size={14}/> Frontend regression checks — passed</div></Panel></div><div><Panel title="Decision history">{decisions.map(d=><div className="decision" key={d[0]}><span className="decision-check"><Check size={12}/></span><div><strong>{d[0]}</strong><p>{d[1]}</p><small>Leader • {d[2]}</small></div></div>)}<div className="decision"><span className="decision-check"><Check size={12}/></span><div><strong>Execution approved</strong><p>Approved &amp; Execute</p><small>Leader • 2:49 PM</small></div></div></Panel></div></div></section>; }
+      <Panel title="Risk Assessment">
+        {project.brief.risks.map((r) => (
+          <div className="risk" key={r.name}>
+            <span className="rn">{r.name}</span>
+            <span className={`rv lvl-${r.level}`}>{r.level}</span>
+            <span className="rd">{r.note}</span>
+          </div>
+        ))}
+      </Panel>
+    </div>
+  );
+}
 
-function Panel({title,children}:{title:string;children:React.ReactNode}) { return <div className="panel"><div className="panel-title">{title}</div>{children}</div>; }
-function ExecStep({title,done=false,active=false}:{title:string;done?:boolean;active?:boolean}) { return <div className={`exec-step ${done?'done':''} ${active?'active':''}`}><span>{done?<Check size={11}/>:active?<Clock3 size={11}/>:''}</span>{title}</div>; }
-function SectionHeader({title,subtitle}:{title:string;subtitle:string}) { return <div className="section-header"><div><h2>{title}</h2><span>{subtitle}</span></div></div>; }
-function Agent({name,task,active=false}:{name:string;task:string;active?:boolean}) { return <div className="agent-row"><div className="agent-avatar"><Bot size={15}/></div><div className="agent-info"><strong>{name}</strong><span>{task}</span></div><div className={`agent-status ${active?'active':''}`}><span/>{active?'Active':'Idle'}</div></div>; }
+/* ── Leader gate ─────────────────────────────────────────────────────── */
+
+const actIcon = { approve: Check, request_updated_plan: MessageSquare, hold: Pause, exit: X };
+
+function LeaderScreen({
+  version,
+  setVersion,
+  feedback,
+  setFeedback,
+  onDecide,
+  locked,
+}: {
+  version: number;
+  setVersion: (v: number) => void;
+  feedback: string;
+  setFeedback: (s: string) => void;
+  onDecide: (d: LeaderDecision) => void;
+  locked: boolean;
+}) {
+  return (
+    <div className="leader-grid">
+      <Panel title="Plan Review">
+        <div className="big-title">{project.brief.title}</div>
+        <span className="chip tone-info">PLAN V{version}</span>
+
+        <div className="fb-label">Scope</div>
+        {project.brief.scope.map((s) => (
+          <p className="lead" key={s}>
+            {s}
+          </p>
+        ))}
+
+        <div className="fb-label">Acceptance criteria</div>
+        {project.brief.acceptance.map((a) => (
+          <div className="check" key={a}>
+            <span />
+            {a}
+          </div>
+        ))}
+
+        <div className="fb-label">Risk assessment</div>
+        {project.brief.risks.map((r) => (
+          <div className="risk" key={r.name}>
+            <span className="rn">{r.name}</span>
+            <span className={`rv lvl-${r.level}`}>{r.level}</span>
+            <span className="rd">{r.note}</span>
+          </div>
+        ))}
+
+        <div className="fb-label">Version</div>
+        <div className="versions">
+          {[...new Set([...project.versions, version])].sort((a, b) => a - b).map((v) => (
+            <button key={v} className={`ver ${v === version ? 'active' : ''}`} onClick={() => setVersion(v)}>
+              <span>v{v}</span>
+            </button>
+          ))}
+          <span className="ver-note">
+            <Lock size={11} /> CODING LOCKED UNTIL LEADER DECISION
+          </span>
+        </div>
+      </Panel>
+
+      <Panel title="Leader Actions">
+        {decisions.map((d) => {
+          const Ico = actIcon[d.id];
+          return (
+            <button
+              key={d.id}
+              className={`act ${d.tone}`}
+              onClick={() => onDecide(d.id)}
+              disabled={locked}
+              style={locked ? { opacity: 0.45, cursor: 'not-allowed' } : undefined}
+            >
+              <span className="act-ico">
+                <Ico size={17} />
+              </span>
+              <span>
+                <strong>{d.label}</strong>
+                <small>{d.detail}</small>
+              </span>
+              <ChevronRight className="arrow" size={19} />
+            </button>
+          );
+        })}
+
+        <div className="fb-label">Leader feedback (optional)</div>
+        <textarea
+          className="fb"
+          value={feedback}
+          maxLength={1000}
+          onChange={(e) => setFeedback(e.target.value)}
+          placeholder="Share feedback, concerns, or additional guidance…"
+        />
+        <div className="fb-count">{feedback.length} / 1000</div>
+      </Panel>
+    </div>
+  );
+}
+
+/* ── Execution ───────────────────────────────────────────────────────── */
+
+function ExecutionScreen({ state }: { state: WorkflowState }) {
+  return (
+    <div className="leader-grid">
+      <Panel title="Agents" count={`${agents.length} online`}>
+        <div className="agent-grid">
+          {agents.map((a) => (
+            <div className="panel" key={a.name} style={{ ['--n' as string]: '9px' }}>
+              <div className="panel-in" style={{ padding: '13px 14px' }}>
+                <div className="mission-hex" style={{ marginBottom: 10 }}>
+                  {a.key}
+                </div>
+                <h4 style={{ margin: '0 0 3px', fontFamily: 'var(--cond)', letterSpacing: '.06em' }}>{a.name}</h4>
+                <div className="owner" style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 8 }}>
+                  {a.task}
+                </div>
+                <span className={`chip tone-${a.tone}`}>{a.status}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Panel>
+
+      <Panel title="Runloop Preview">
+        <div className="term">
+          <div>
+            <span className="dim">&gt;</span> leader_decision.recorded
+          </div>
+          <div>
+            <span className="dim">&gt;</span> execution_contract.created
+          </div>
+          <div>
+            <span className="dim">&gt;</span> runloop.inspect frontend
+          </div>
+          <div>
+            <span className="dim">&gt;</span> state = {state}
+          </div>
+          <div>
+            <span className="dim">&gt;</span> _
+          </div>
+        </div>
+      </Panel>
+    </div>
+  );
+}
+
+/* ── Audit ───────────────────────────────────────────────────────────── */
+
+function AuditScreen() {
+  return (
+    <Panel title="Decision Audit">
+      {pipeline.map((p) => {
+        const s = phaseStatus(p, project.state);
+        return (
+          <div className="kv" key={p.id}>
+            <span className="k">
+              <span className={`chip tone-${s === 'done' ? 'go' : s === 'current' ? 'info' : 'hold'}`}>{p.label}</span>
+            </span>
+            <span style={{ color: 'var(--muted)', fontSize: 12 }}>{p.blurb}</span>
+            <span className="v">{p.at ?? '—'}</span>
+          </div>
+        );
+      })}
+    </Panel>
+  );
+}
