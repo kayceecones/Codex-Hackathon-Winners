@@ -396,11 +396,18 @@ textarea.fb:focus { outline: none; border-color: var(--cyan); box-shadow: 0 0 18
 
 /* ── Risk table ─────────────────────────────────────────────────────── */
 
-.risk { display: grid; grid-template-columns: 210px 78px 1fr; gap: 12px; padding: 9px 0; font-size: 12px; align-items: center; }
+.risk {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 2px 12px;
+  padding: 10px 0;
+  font-size: 12px;
+  align-items: baseline;
+}
 .risk + .risk { border-top: 1px solid var(--edge-soft); }
 .risk .rn { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em; color: var(--muted); }
 .risk .rv { font-family: var(--mono); font-size: 11px; }
-.risk .rd { color: var(--dim); }
+.risk .rd { grid-column: 1 / -1; color: var(--dim); line-height: 1.5; }
 .lvl-Low { color: var(--green) } .lvl-Medium { color: var(--amber) } .lvl-High { color: var(--red) }
 
 /* ── Event feed ─────────────────────────────────────────────────────── */
@@ -497,3 +504,48 @@ textarea.fb:focus { outline: none; border-color: var(--cyan); box-shadow: 0 0 18
 /* Demo mode: the live chip goes amber when data is not from the server. */
 .live-chip.is-demo { color: var(--amber); }
 .live-chip.is-demo i { background: var(--amber); box-shadow: 0 0 9px var(--amber); }
+
+/* ── Interactive acceptance checklist ───────────────────────────────── */
+
+label.check { cursor: pointer; user-select: none; transition: color 0.15s ease; }
+label.check:hover { color: var(--text); }
+label.check input { position: absolute; opacity: 0; width: 0; height: 0; }
+
+.check span {
+  display: grid;
+  place-items: center;
+  font-size: 10px;
+  line-height: 1;
+  color: var(--bg);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+label.check input:focus-visible + span { outline: 2px solid var(--cyan); outline-offset: 2px; }
+label.check.is-on { color: var(--text); }
+label.check.is-on span { background: var(--green); border-color: var(--green); }
+.check.is-static { cursor: default; }
+
+/* Queue rows are buttons now. */
+button.mission {
+  width: 100%;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+button.mission:hover:not(:disabled) { background: rgba(34, 211, 238, 0.05); }
+button.mission:disabled { cursor: default; }
+button.mission:focus-visible { outline: 2px solid var(--cyan); outline-offset: -2px; }
+button.mission.is-active { background: rgba(168, 85, 247, 0.09); }
+button.mission.is-active .mission-hex { border-color: var(--violet); color: var(--violet); background: rgba(168, 85, 247, 0.12); }
+
+
+/* Plan steps are a sequence, not a checklist. */
+.steps { margin: 0; padding-left: 20px; }
+.steps li { font-size: 12.5px; line-height: 1.6; color: var(--muted); padding: 3px 0; }
+.steps li::marker { color: var(--cyan); font-family: var(--mono); font-size: 11px; }

@@ -6,6 +6,7 @@
 // shows which mode it is in rather than pretending.
 
 import {
+  scenarios,
   demoAgents,
   demoFeed,
   demoMissions,
@@ -15,11 +16,29 @@ import {
   type Mission,
   type Project,
   type Risk,
+  type Scenario,
   type WorkflowState,
 } from '../workflow';
 
 const BASE = ((import.meta as unknown as { env?: Record<string, string> }).env?.VITE_API_URL ?? '').replace(/\/$/, '');
 const KEY = 'weave.projectId';
+const LIST = 'weave.projects';
+const SEP = ' :: ';
+
+const readLocal = (k: string): string | null => {
+  try {
+    return localStorage.getItem(k);
+  } catch {
+    return null;
+  }
+};
+const writeLocal = (k: string, v: string) => {
+  try {
+    localStorage.setItem(k, v);
+  } catch {
+    /* private mode */
+  }
+};
 
 export type Mode = 'connecting' | 'live' | 'demo';
 
@@ -52,6 +71,22 @@ interface ApiSnapshot {
 }
 
 /** Everything the UI renders, whether it came from the API or the fixtures. */
+export interface PlanView {
+  version: number;
+  title: string;
+  summary: string;
+  steps: string[];
+  acceptance: string[];
+  risks: Risk[];
+}
+
+export interface QueueItem {
+  projectId: string;
+  title: string;
+  owner: string;
+  state: WorkflowState;
+}
+
 export interface View {
   mode: Mode;
   /** Why we fell back, when mode is 'demo'. */
@@ -61,6 +96,10 @@ export interface View {
   missions: Mission[];
   agents: Agent[];
   feed: FeedEvent[];
+  /** Every version of this project's plan, oldest first. */
+  plans: PlanView[];
+  /** All seeded projects, so the queue can switch between them. */
+  queue: QueueItem[];
 }
 
 async function call<T>(path: string, init?: RequestInit, timeoutMs = 12000): Promise<T> {
@@ -102,8 +141,24 @@ const TONE: Record<string, FeedEvent['tone']> = {
 const clock = (iso: string) =>
   new Date(iso).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
-/** Backend plan risks are plain strings; the fixtures carry graded rows. */
-const toRisks = (plan?: ApiPlan): Risk[] => (plan?.risks ?? []).map((r) => ({ name: r }));
+/**
+ * PlanVersionInput.risks is string[], so grading is encoded into the string
+ * on the way out and parsed back here. A risk written by anything else still
+ * renders — it just arrives with no level or note.
+ */
+export const encodeRisk = (r: Risk): string =>
+  [r.name, r.level ?? '', r.note ?? ''].join(SEP).replace(/(\s::\s)+$/, '');
+
+const decodeRisk = (raw: string): Risk => {
+  const [name, level, note] = raw.split(SEP);
+  return {
+    name: (name ?? raw).trim(),
+    level: (['Low', 'Medium', 'High'] as const).find((l) => l === level?.trim()),
+    note: note?.trim() || undefined,
+  };
+};
+
+const toRisks = (plan?: ApiPlan): Risk[] => (plan?.risks ?? []).map(decodeRisk);
 
 /** Which agent the current state implies is working. */
 function agentsFor(state: WorkflowState): Agent[] {
@@ -122,13 +177,26 @@ function agentsFor(state: WorkflowState): Agent[] {
   });
 }
 
-function toView(snap: ApiSnapshot): View {
+function toPlanViews(snap: ApiSnapshot): PlanView[] {
+  return snap.plans.map((p) => ({
+    version: p.version,
+    title: p.title,
+    summary: p.summary,
+    steps: p.steps?.map((x) => x.title) ?? [],
+    acceptance: p.acceptanceCriteria ?? [],
+    risks: (p.risks ?? []).map(decodeRisk),
+  }));
+}
+
+function toView(snap: ApiSnapshot, queue: QueueItem[] = []): View {
   const plan = snap.plans[snap.plans.length - 1];
   const proposal = snap.proposals[snap.proposals.length - 1];
 
   return {
     mode: 'live',
     projectId: snap.project.id,
+    plans: toPlanViews(snap),
+    queue,
     project: {
       ...demoProject,
       name: snap.project.name,
@@ -139,9 +207,9 @@ function toView(snap: ApiSnapshot): View {
       brief: {
         title: plan?.title ?? proposal?.title ?? demoProject.brief.title,
         scope: [plan?.summary ?? proposal?.summary ?? ''].filter(Boolean),
-        acceptance: plan?.acceptanceCriteria?.length ? plan.acceptanceCriteria : [],
+        acceptance: plan?.acceptanceCriteria ?? [],
         risks: toRisks(plan),
-        steps: plan?.steps?.map((s) => s.title) ?? [],
+        steps: plan?.steps?.map((x) => x.title) ?? [],
       },
     },
     missions: snap.proposals.map((p) => ({
@@ -170,51 +238,131 @@ export const demoView: View = {
   missions: demoMissions,
   agents: demoAgents,
   feed: demoFeed,
+  plans: [],
+  queue: [],
 };
 
-/* ── Bootstrap ────────────────────────────────────────────────────────── */
+/* ── Seeding ──────────────────────────────────────────────────────────── */
 
-/** Seed a fresh project up to the leader gate — the state worth demoing. */
-async function seed(): Promise<ApiSnapshot> {
-  const created = await call<{ snapshot: ApiSnapshot }>('/api/projects', {
-    method: 'POST',
-    body: JSON.stringify({ name: 'Weave', description: demoProject.tagline, leader: demoProject.leader }),
-  });
-  const id = created.snapshot.project.id;
-  const b = demoProject.brief;
+const planPayload = (sc: Scenario) => ({
+  plan: {
+    title: sc.title,
+    summary: sc.summary,
+    steps: sc.acceptance.slice(0, 3).map((t) => ({ title: t, description: t })),
+    acceptanceCriteria: sc.acceptance,
+    risks: sc.risks.map(encodeRisk),
+  },
+});
 
-  await event(
-    id,
+/**
+ * Drive one project to its scenario's target state using the same events the
+ * agents would send. The order mirrors the state machine, so an unreachable
+ * target fails loudly here rather than silently leaving the project behind.
+ */
+async function drive(id: string, sc: Scenario): Promise<ApiSnapshot | null> {
+  let snap: ApiSnapshot | null = null;
+  const send = async (type: string, payload: unknown, actor?: { name: string; role?: string }) => {
+    snap = (await event(id, type, payload, actor)).snapshot;
+  };
+
+  if (sc.target === 'idle') return null;
+
+  await send(
     'proposal.accepted',
     {
       proposal: {
-        title: b.title,
-        summary: b.scope.join(' '),
-        proposer: 'Maya',
-        acceptanceCriteria: b.acceptance,
-        risks: b.risks.map((r) => r.name),
+        title: sc.title,
+        summary: sc.summary,
+        proposer: sc.owner,
+        acceptanceCriteria: sc.acceptance,
+        risks: sc.risks.map(encodeRisk),
       },
     },
-    { name: 'Maya', role: 'Product' }
+    { name: sc.owner, role: 'Product' }
   );
+  if (sc.target === 'awaiting_plan') return snap;
 
-  const planned = await event(
-    id,
-    'planning.completed',
-    {
-      plan: {
-        title: b.title,
-        summary: b.scope.join(' '),
-        steps: (b.steps ?? []).map((t) => ({ title: t, description: t })),
-        acceptanceCriteria: b.acceptance,
-        risks: b.risks.map((r) => r.name),
-      },
-    },
-    { name: 'Planning Agent', role: 'agent' }
+  await send('planning.completed', planPayload(sc), { name: 'Planning Agent', role: 'agent' });
+
+  // Each revision is a real send-back round, so the plan gains a version the
+  // leader can actually page through rather than a fabricated history.
+  for (let i = 0; i < (sc.revisions ?? 0); i += 1) {
+    await send(
+      'leader.requested_changes',
+      { leader: demoProject.leader, feedback: sc.feedback ?? 'Please revise.' },
+      { name: demoProject.leader, role: 'Leader' }
+    );
+    await send('planning.completed', planPayload(sc), { name: 'Planning Agent', role: 'agent' });
+  }
+
+  if (sc.target === 'awaiting_leader_decision') return snap;
+
+  const leader = { name: demoProject.leader, role: 'Leader' };
+  if (sc.target === 'on_hold') {
+    await send('leader.held', { leader: demoProject.leader, reason: sc.feedback ?? 'Paused.' }, leader);
+    return snap;
+  }
+  if (sc.target === 'exited') {
+    await send('leader.exited', { leader: demoProject.leader, reason: sc.feedback ?? 'Closed.' }, leader);
+    return snap;
+  }
+
+  await send('leader.approved', { leader: demoProject.leader, notes: 'Approved for execution.' }, leader);
+  if (sc.target === 'awaiting_coding') return snap;
+
+  await send(
+    'coding.completed',
+    { execution: { status: 'completed', summary: 'Implementation complete.', filesChanged: ['frontend/src/theme.css'] } },
+    { name: 'Coding Agent', role: 'agent' }
   );
+  if (sc.target === 'awaiting_review') return snap;
 
-  localStorage.setItem(KEY, id);
-  return planned.snapshot;
+  await send('review.completed', { review: { classification: 'pass', summary: 'Acceptance criteria met.' } }, {
+    name: 'Review Agent',
+    role: 'agent',
+  });
+  return snap;
+}
+
+/** Create every scenario as a real project. Returns the queue and the primary. */
+async function seedAll(): Promise<{ queue: QueueItem[]; primary: ApiSnapshot }> {
+  const queue: QueueItem[] = [];
+  let primary: ApiSnapshot | null = null;
+
+  for (const sc of scenarios) {
+    const created = await call<{ snapshot: ApiSnapshot }>('/api/projects', {
+      method: 'POST',
+      body: JSON.stringify({ name: sc.title, description: sc.summary, leader: demoProject.leader }),
+    });
+    const id = created.snapshot.project.id;
+
+    let snap = created.snapshot;
+    try {
+      const driven = await drive(id, sc);
+      if (driven) snap = driven;
+    } catch {
+      // One scenario failing must not cost the whole queue.
+    }
+
+    queue.push({ projectId: id, title: sc.title, owner: sc.owner, state: snap.project.status });
+    // The first scenario is the one the workspace opens on.
+    if (!primary) primary = snap;
+  }
+
+  if (!primary) throw new Error('Could not seed any project.');
+  writeLocal(LIST, JSON.stringify(queue));
+  writeLocal(KEY, queue[0].projectId);
+  return { queue, primary };
+}
+
+function savedQueue(): QueueItem[] {
+  try {
+    const raw = readLocal(LIST);
+    const parsed = raw ? (JSON.parse(raw) as QueueItem[]) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
 }
 
 export async function load(): Promise<View> {
@@ -224,31 +372,35 @@ export async function load(): Promise<View> {
     // on the cheapest endpoint, so the calls that follow are quick.
     await call('/health', undefined, 60000);
 
-    const saved = (() => {
-      try {
-        return localStorage.getItem(KEY);
-      } catch {
-        return null;
-      }
-    })();
+    const saved = readLocal(KEY);
+    const queue = savedQueue();
 
-    if (saved) {
+    if (saved && queue.length) {
       try {
         const got = await call<{ snapshot: ApiSnapshot }>(`/api/projects/${saved}`);
-        return toView(got.snapshot);
+        // Refresh each queued project's state so the list is not stale.
+        const states = await Promise.all(
+          queue.map((q) =>
+            call<{ snapshot: ApiSnapshot }>(`/api/projects/${q.projectId}`)
+              .then((r) => ({ ...q, state: r.snapshot.project.status }))
+              .catch(() => null)
+          )
+        );
+        const live = states.filter((q): q is QueueItem => q !== null);
+        if (live.length) {
+          writeLocal(LIST, JSON.stringify(live));
+          return toView(got.snapshot, live);
+        }
       } catch {
         // The project can vanish for several reasons — the store is
         // in-memory and restarts, or a deploy swaps the store entirely.
-        // Whatever the cause, the answer is the same: start a fresh one
-        // rather than treating a reachable server as unreachable.
-        try {
-          localStorage.removeItem(KEY);
-        } catch {
-          /* private mode */
-        }
+        // Whatever the cause, re-seed rather than call a reachable
+        // server unreachable.
       }
     }
-    return toView(await seed());
+
+    const { queue: fresh, primary } = await seedAll();
+    return toView(primary, fresh);
   } catch (e) {
     // Say what actually happened. "Unreachable" is misleading when the
     // server answered with an error.
@@ -262,9 +414,31 @@ export async function load(): Promise<View> {
   }
 }
 
+/** Switch the workspace to another project in the queue. */
+export async function open(projectId: string): Promise<View> {
+  const got = await call<{ snapshot: ApiSnapshot }>(`/api/projects/${projectId}`);
+  writeLocal(KEY, projectId);
+  const queue = savedQueue().map((q) =>
+    q.projectId === projectId ? { ...q, state: got.snapshot.project.status } : q
+  );
+  return toView(got.snapshot, queue);
+}
+
 export async function refresh(projectId: string): Promise<View> {
   const got = await call<{ snapshot: ApiSnapshot }>(`/api/projects/${projectId}`);
-  return toView(got.snapshot);
+  const queue = savedQueue().map((q) =>
+    q.projectId === projectId ? { ...q, state: got.snapshot.project.status } : q
+  );
+  return toView(got.snapshot, queue);
+}
+
+/** Re-render with the queue row for this project brought up to date. */
+function withQueue(projectId: string, snap: ApiSnapshot): View {
+  const queue = savedQueue().map((q) =>
+    q.projectId === projectId ? { ...q, state: snap.project.status } : q
+  );
+  writeLocal(LIST, JSON.stringify(queue));
+  return toView(snap, queue);
 }
 
 /* ── Commands ─────────────────────────────────────────────────────────── */
@@ -290,12 +464,12 @@ export async function decide(
         : { leader, reason: text || (decision === 'hold' ? 'Paused by leader.' : 'Closed by leader.') };
 
   const res = await event(projectId, EVENT_FOR[decision], payload, { name: leader, role: 'Leader' });
-  return toView(res.snapshot);
+  return withQueue(projectId, res.snapshot);
 }
 
 export async function resume(projectId: string, note = 'Resumed by leader.'): Promise<View> {
   const res = await event(projectId, 'workflow.resumed', { note });
-  return toView(res.snapshot);
+  return withQueue(projectId, res.snapshot);
 }
 
 /**
@@ -309,7 +483,7 @@ export async function completeCoding(projectId: string): Promise<View> {
     { execution: { status: 'completed', summary: 'Implementation complete.', filesChanged: ['frontend/src/theme.css'] } },
     { name: 'Coding Agent', role: 'agent' }
   );
-  return toView(res.snapshot);
+  return withQueue(projectId, res.snapshot);
 }
 
 export async function completeReview(projectId: string): Promise<View> {
