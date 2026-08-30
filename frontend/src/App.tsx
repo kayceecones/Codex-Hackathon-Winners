@@ -570,34 +570,147 @@ function ExecutionScreen({
 
 function AuditScreen({ feed, state }: { feed: FeedEvent[]; state: WorkflowState }) {
   return (
-    <div className="leader-grid">
-      <Panel title="Pipeline" count={state}>
-        {pipeline.map((p) => {
-          const st = phaseStatus(p, state);
-          return (
-            <div className="kv" key={p.id}>
-              <span className="k">
-                <span className={`chip tone-${st === 'done' ? 'go' : st === 'current' ? 'info' : 'hold'}`}>
-                  {p.label}
+    <>
+      <div className="leader-grid">
+        <Panel title="Pipeline" count={state}>
+          {pipeline.map((p) => {
+            const st = phaseStatus(p, state);
+            return (
+              <div className="kv" key={p.id}>
+                <span className="k">
+                  <span className={`chip tone-${st === 'done' ? 'go' : st === 'current' ? 'info' : 'hold'}`}>
+                    {p.label}
+                  </span>
                 </span>
+                <span style={{ color: 'var(--muted)', fontSize: 12 }}>{p.crew}</span>
+                <span className="v">{st}</span>
+              </div>
+            );
+          })}
+        </Panel>
+
+        <Panel title="Session Events" count={`${feed.length}`}>
+          {feed.map((e, i) => (
+            <div className="kv" key={`${e.at}-${i}`}>
+              <span className="k">
+                <span className={`chip tone-${e.tone}`}>{e.tag}</span>
               </span>
-              <span style={{ color: 'var(--muted)', fontSize: 12 }}>{p.crew}</span>
-              <span className="v">{st}</span>
+              <span style={{ color: 'var(--muted)', fontSize: 12 }}>{e.type}</span>
+              <span className="v">{e.at}</span>
             </div>
-          );
-        })}
+          ))}
+        </Panel>
+      </div>
+
+      <div style={{ marginTop: 18 }}>
+        <NotionMemory />
+      </div>
+    </>
+  );
+}
+
+/* ── Notion project memory ───────────────────────────────────────────── */
+
+function NotionMemory() {
+  const [status, setStatus] = useState<api.MemoryStatus>({ state: 'off' });
+  const [pick, setPick] = useState<string | null>(null);
+  const [detail, setDetail] = useState<{ events: api.MemoryEvent[]; plans: api.MemoryPlan[] } | null>(null);
+  const [err, setErr] = useState('');
+
+  useEffect(() => {
+    api.memoryProjects().then((s) => {
+      setStatus(s);
+      if (s.state === 'ready' && s.projects[0]) setPick(s.projects[0].projectId);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!pick) return;
+    setDetail(null);
+    setErr('');
+    api
+      .memoryFor(pick)
+      .then(setDetail)
+      .catch((e) => setErr((e as Error).message));
+  }, [pick]);
+
+  if (status.state === 'off') return null;
+
+  if (status.state !== 'ready') {
+    return (
+      <Panel title="Project Memory · Notion">
+        <p className="lead">
+          {status.state === 'unconfigured'
+            ? status.message
+            : `Could not read project memory: ${status.message}`}
+        </p>
+        <p className="mono-sm">
+          READ-ONLY MIRROR · THE DATABASE REMAINS THE OPERATIONAL SOURCE OF TRUTH
+        </p>
+      </Panel>
+    );
+  }
+
+  return (
+    <div className="leader-grid">
+      <Panel title="Project Memory · Notion" count={`${status.projects.length} projects`}>
+        {status.projects.length === 0 && <p className="lead">No projects recorded in Notion yet.</p>}
+        {status.projects.map((p) => (
+          <button
+            key={p.projectId}
+            className="kv"
+            onClick={() => setPick(p.projectId)}
+            style={{
+              width: '100%',
+              background: p.projectId === pick ? 'rgba(34,211,238,.07)' : 'none',
+              border: 0,
+              borderTop: '1px solid var(--edge-soft)',
+              color: 'inherit',
+              font: 'inherit',
+              cursor: 'pointer',
+              textAlign: 'left',
+            }}
+          >
+            <span className="k" style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>
+              {p.projectId}
+            </span>
+            <span style={{ color: 'var(--muted)', fontSize: 11 }}>{p.latestType}</span>
+            <span className="v">{p.events} ev</span>
+          </button>
+        ))}
       </Panel>
 
-      <Panel title="Event Log" count={`${feed.length}`}>
-        {feed.map((e, i) => (
-          <div className="kv" key={`${e.at}-${i}`}>
-            <span className="k">
-              <span className={`chip tone-${e.tone}`}>{e.tag}</span>
-            </span>
-            <span style={{ color: 'var(--muted)', fontSize: 12 }}>{e.type}</span>
-            <span className="v">{e.at}</span>
-          </div>
-        ))}
+      <Panel title="Recorded History" count={pick ?? ''}>
+        {err && <p className="lead">Could not load: {err}</p>}
+        {!detail && !err && <p className="lead">Loading…</p>}
+        {detail && (
+          <>
+            <div className="fb-label">Plan versions</div>
+            {detail.plans.length === 0 && <p className="lead">No plan versions recorded.</p>}
+            {detail.plans.map((p) => (
+              <div className="kv" key={`${p.projectId}-${p.version}`}>
+                <span className="k">
+                  <span className="chip tone-info">V{p.version}</span>
+                </span>
+                <span style={{ color: 'var(--muted)', fontSize: 11.5 }}>{p.status}</span>
+                <span className="v">{p.diffSummary ? 'revised' : '—'}</span>
+              </div>
+            ))}
+
+            <div className="fb-label">Timeline</div>
+            {detail.events.slice(0, 12).map((e, i) => (
+              <div className="kv" key={`${e.type}-${i}`}>
+                <span className="k" style={{ fontFamily: 'var(--mono)', fontSize: 10.5 }}>
+                  {e.type}
+                </span>
+                <span style={{ color: 'var(--muted)', fontSize: 11, flex: 1 }}>
+                  {e.summary.split('\n')[0].slice(0, 70)}
+                </span>
+                <span className="v">{e.at ? new Date(e.at).toLocaleTimeString('en-US', { hour12: false }) : '—'}</span>
+              </div>
+            ))}
+          </>
+        )}
       </Panel>
     </div>
   );

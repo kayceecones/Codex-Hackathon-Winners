@@ -303,3 +303,41 @@ export async function completeReview(projectId: string): Promise<View> {
   );
   return toView(res.snapshot);
 }
+
+/* ── Notion project memory (read-only) ────────────────────────────────── */
+
+export interface MemoryEvent { projectId: string; type: string; summary: string; at?: string }
+export interface MemoryPlan { projectId: string; version: number; status: string; diffSummary: string; content: string }
+export interface MemoryProject { projectId: string; events: number; latestType: string; latestAt?: string }
+
+export type MemoryStatus =
+  | { state: 'off' }                                    // no API base configured
+  | { state: 'unconfigured'; message: string }          // server reachable, Notion creds absent
+  | { state: 'error'; message: string }
+  | { state: 'ready'; projects: MemoryProject[] };
+
+/**
+ * The workspace's durable history. The backend owns the Notion credentials —
+ * a static page can neither hold a token nor call Notion cross-origin.
+ */
+export async function memoryProjects(): Promise<MemoryStatus> {
+  if (!BASE) return { state: 'off' };
+  try {
+    const { projects } = await call<{ projects: MemoryProject[] }>('/api/memory/projects');
+    return { state: 'ready', projects };
+  } catch (e) {
+    const status = (e as { status?: number }).status;
+    // 404 = backend predates the memory routes; same user-facing meaning.
+    if (status === 503 || status === 404) {
+      return {
+        state: 'unconfigured',
+        message: 'Set NOTION_TOKEN and NOTION_TIMELINE_DB_ID on the backend service to read project memory.',
+      };
+    }
+    return { state: 'error', message: (e as Error).message };
+  }
+}
+
+export async function memoryFor(projectId: string): Promise<{ events: MemoryEvent[]; plans: MemoryPlan[] }> {
+  return call<{ events: MemoryEvent[]; plans: MemoryPlan[] }>(`/api/memory/projects/${encodeURIComponent(projectId)}`);
+}

@@ -2,6 +2,7 @@ import cors from "@fastify/cors";
 import Fastify, { type FastifyInstance } from "fastify";
 import { DemoAgentGateway } from "./adapters/agents/DemoAgentGateway.js";
 import type { AgentGateway } from "./adapters/agents/AgentGateway.js";
+import { NotionMemory } from "./adapters/memory/NotionMemory.js";
 import { InMemoryStore } from "./adapters/store/InMemoryStore.js";
 import type { Store } from "./adapters/store/Store.js";
 import type { ApiErrorResponse } from "./contracts/api.js";
@@ -9,6 +10,7 @@ import { WorkflowTransitionError } from "./master/errors.js";
 import { registerContractRoutes } from "./routes/contractRoutes.js";
 import { registerEventRoutes } from "./routes/eventRoutes.js";
 import { registerHealthRoutes } from "./routes/healthRoutes.js";
+import { registerMemoryRoutes } from "./routes/memoryRoutes.js";
 import { registerIntegrationRoutes } from "./routes/integrationRoutes.js";
 import { registerProjectRoutes } from "./routes/projectRoutes.js";
 import { registerRootRoutes } from "./routes/rootRoutes.js";
@@ -16,6 +18,8 @@ import { registerRootRoutes } from "./routes/rootRoutes.js";
 export interface BuildAppOptions {
   store?: Store;
   agentGateway?: AgentGateway;
+  /** Injectable so the Notion reader can be exercised without live credentials. */
+  memory?: NotionMemory;
   logger?: boolean;
 }
 
@@ -64,6 +68,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   await registerContractRoutes(app);
   await registerProjectRoutes(app, { store, agentGateway });
   await registerEventRoutes(app, { store, agentGateway });
+  await registerMemoryRoutes(app, { memory: options.memory });
   await registerIntegrationRoutes(app, { store, agentGateway });
 
   return app;
