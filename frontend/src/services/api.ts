@@ -54,6 +54,8 @@ interface ApiSnapshot {
 /** Everything the UI renders, whether it came from the API or the fixtures. */
 export interface View {
   mode: Mode;
+  /** Why we fell back, when mode is 'demo'. */
+  reason?: string;
   projectId: string | null;
   project: Project;
   missions: Mission[];
@@ -162,6 +164,7 @@ function toView(snap: ApiSnapshot): View {
 
 export const demoView: View = {
   mode: 'demo',
+  reason: '',
   projectId: null,
   project: demoProject,
   missions: demoMissions,
@@ -233,14 +236,29 @@ export async function load(): Promise<View> {
       try {
         const got = await call<{ snapshot: ApiSnapshot }>(`/api/projects/${saved}`);
         return toView(got.snapshot);
-      } catch (e) {
-        // The backend store is in-memory, so a restart drops the project.
-        if ((e as { status?: number }).status !== 404) throw e;
+      } catch {
+        // The project can vanish for several reasons — the store is
+        // in-memory and restarts, or a deploy swaps the store entirely.
+        // Whatever the cause, the answer is the same: start a fresh one
+        // rather than treating a reachable server as unreachable.
+        try {
+          localStorage.removeItem(KEY);
+        } catch {
+          /* private mode */
+        }
       }
     }
     return toView(await seed());
-  } catch {
-    return demoView;
+  } catch (e) {
+    // Say what actually happened. "Unreachable" is misleading when the
+    // server answered with an error.
+    const status = (e as { status?: number }).status;
+    return {
+      ...demoView,
+      reason: status
+        ? `Backend returned HTTP ${status}.`
+        : `Backend unreachable (${(e as Error).message}).`,
+    };
   }
 }
 
