@@ -15,9 +15,11 @@
 </p>
 
 **Weave** turns AI-assisted development from a single-player activity into a shared, governed workflow. Anyone on the team can propose a change; agents research it, synthesize it into one coherent plan, and a human leader decides what happens next - approve, ask for a revision, hold, or close it out. Only after a human says go does a coding agent touch real code, inside an isolated Runloop devbox booted from the project's current state. The result isn't a diff you read about: it's a live URL the whole team can open, committed as a snapshot that any future run can build on.
+Everyone can propose. Agents synthesize. Humans decide. Runloop executes. 
 
 [Check out our notion database here
-](https://app.notion.com/p/The-Mind-Palace-3c54b1e59617807babfada5c4cc955b4?source=copy_link)> Everyone can propose. Agents synthesize. Humans decide. Runloop executes.
+](https://app.notion.com/p/The-Mind-Palace-3c54b1e59617807babfada5c4cc955b4?source=copy_link)
+
 
 [Architecture](#system-architecture) · [The Workflow Pipeline](#the-workflow-pipeline) · [Features](#features) · [Master API](#master-api) · [Tech Stack](#tech-stack) · [Quick Start](#quick-start)
 
