@@ -19,7 +19,7 @@
 Everyone can propose. Agents synthesize. Humans decide. Runloop executes. 
 
 
-[Architecture](#system-architecture) · [The Workflow Pipeline](#the-workflow-pipeline) · [Features](#features) · [Master API](#master-api) · [Tech Stack](#tech-stack) · [Quick Start](#quick-start) 
+[Architecture](#system-architecture) · [The Workflow Pipeline](#the-workflow-pipeline) · [Features](#features) · [Master API](#master-api) · [Tech Stack](#tech-stack) · [Quick Start](#quick-start) · 
 [Detailed system information
 ](https://app.notion.com/p/The-Mind-Palace-3c54b1e59617807babfada5c4cc955b4?source=copy_link)
 
